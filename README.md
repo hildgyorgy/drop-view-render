@@ -27,13 +27,16 @@ The repository is a native SwiftUI macOS application. It:
 
 Render quality has two profiles: **Recommended** keeps the package/default
 sample count as a maximum, preserves bounce limits and enables adaptive sampling
-(noise threshold 0.01) and OpenImageDenoise. **Custom** lets the user edit those
+(noise threshold 0.03) and OpenImageDenoise. **Custom** lets the user edit those
 counts, toggle denoising and adaptive sampling, and select a noise threshold.
 Disable both switches for a fixed-sample RAW comparison. Switching profiles
 preserves Custom values. Resolution has its own independent override.
 Adaptive sampling stops clean pixels early; minimum samples is 32 or the
 requested maximum if lower. A lower noise threshold asks for a cleaner image.
 No actual per-pixel sample statistics or savings are currently reported.
+Each run retains an immutable settings snapshot, separate from next-render
+controls. That snapshot also supplies the adapter arguments and is written to
+the job log, so changing profiles cannot relabel a previous result.
 OIDN uses albedo/normal guidance, accurate
 prefiltering and high quality, with GPU acceleration requested when available.
 

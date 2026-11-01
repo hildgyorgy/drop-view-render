@@ -21,6 +21,15 @@ struct RenderQueueSmoke {
         model.jobs[0].usesDenoising = false
         model.jobs[0].usesAdaptiveSampling = false
         precondition(model.jobs[0].elapsedRenderTime == nil && model.canStart)
+        let customSettings = model.jobs[0].resolvedSettings
+        model.jobs[0].qualityProfile = .recommended
+        let recommendedSettings = model.jobs[0].resolvedSettings
+        precondition(recommendedSettings.noiseThreshold == 0.03)
+        precondition(recommendedSettings.denoise && recommendedSettings.adaptive)
+        precondition(recommendedSettings.samples == model.jobs[0].sourceSamples)
+        precondition(recommendedSettings.adapterArguments.contains("0.03"))
+        model.jobs[0].qualityProfile = .custom
+        precondition(model.jobs[0].resolvedSettings == customSettings)
         model.startQueue()
         precondition(model.isRendering && !model.canStart)
         try await waitForCompletion(model)
@@ -28,6 +37,13 @@ struct RenderQueueSmoke {
         precondition((model.jobs[0].renderDuration ?? 0) > 0)
         precondition(model.jobs[0].log.contains("Total time (including preparation and denoise)"))
         let duration = model.jobs[0].elapsedRenderTime
+        let completedSettings = model.jobs[0].lastRunSettings
+        precondition(completedSettings == model.jobs[0].resolvedSettings)
+        precondition(model.jobs[0].log.contains("adaptive sampling OFF, denoise OFF"))
+        model.jobs[0].qualityProfile = .recommended
+        precondition(model.jobs[0].lastRunSettings == completedSettings)
+        precondition(model.jobs[0].resolvedSettings != completedSettings)
+        model.jobs[0].qualityProfile = .custom
         try await Task.sleep(for: .milliseconds(200))
         precondition(model.jobs[0].elapsedRenderTime == duration)
         precondition(model.canStart, "Selected finished job must be renderable from toolbar")
@@ -35,10 +51,14 @@ struct RenderQueueSmoke {
         // Simulate replacement already approved via the save panel. Only this
         // test-owned temporary output is replaced; production prompts otherwise.
         model.jobs[0].overwriteApproved = true
+        model.jobs[0].qualityProfile = .recommended
         model.startQueue()
         precondition(model.isRendering && model.jobs[0].renderDuration == nil)
         try await waitForCompletion(model)
         precondition(model.jobs[0].state == .finished, model.jobs[0].log)
+        precondition(model.jobs[0].log.contains("adaptive sampling ON, denoise OIDN ON"))
+        precondition(model.jobs[0].log.contains("Noise threshold 0.03"))
+        precondition(model.jobs[0].lastRunSettings?.noiseThreshold == 0.03)
         precondition((model.jobs[0].renderDuration ?? 0) > 0)
         print("PASS: toolbar first render/rerender, atomic replacement, live/frozen/reset timing")
 

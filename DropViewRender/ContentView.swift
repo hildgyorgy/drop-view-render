@@ -171,6 +171,19 @@ private struct JobDetail: View {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 Divider()
+                if let settings = job.lastRunSettings {
+                    GroupBox(job.state == .rendering ? "Current render settings" : "Last run settings") {
+                        Text(settings.summary)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 6)
+                    }
+                }
+                if job.lastRunSettings != nil && job.state != .rendering {
+                    Text("Next render settings")
+                        .font(.headline)
+                }
                 resolution
                 quality
                 output
@@ -230,7 +243,7 @@ private struct JobDetail: View {
                     LabeledContent("Bounces", value: String(job.sourceBounces))
                     LabeledContent("Transmission bounces", value: String(job.sourceTransmissionBounces))
                     LabeledContent("Denoise", value: "On")
-                    LabeledContent("Adaptive sampling", value: "On · noise threshold 0.01")
+                    LabeledContent("Adaptive sampling", value: "On · noise threshold \(RenderJob.recommendedNoiseThreshold)")
                     Text("Uses the source sample count as a maximum. Clean pixels may finish earlier; denoising runs after sampling. Bounce limits are preserved.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -257,8 +270,8 @@ private struct JobDetail: View {
                     if job.usesAdaptiveSampling {
                         Picker("Noise threshold", selection: $job.noiseThreshold) {
                             Text("0.1 — faster").tag(0.1)
-                            Text("0.03").tag(0.03)
-                            Text("0.01 — recommended").tag(0.01)
+                            Text("0.03 — recommended").tag(0.03)
+                            Text("0.01").tag(0.01)
                             Text("0.003").tag(0.003)
                             Text("0.001 — cleaner").tag(0.001)
                         }

@@ -48,7 +48,7 @@ Verified on an Apple M1 Max with Blender 5.2.3:
 
 The app now has Recommended and Custom quality profiles. Recommended preserves
 source/default sample counts as a maximum and keeps bounce limits, enabling
-adaptive sampling (noise threshold 0.01) and OpenImageDenoise. Custom allows
+adaptive sampling (noise threshold 0.03) and OpenImageDenoise. Custom allows
 editing counts, toggling adaptive sampling/denoise and selecting noise thresholds,
 and retains its settings when switching profiles. Resolution is independently overridden.
 The adapter defaults to denoise ON (`--no-denoise` disables it); it uses albedo
@@ -59,6 +59,11 @@ The CLI retains fixed sampling unless `--adaptive-sampling` is passed; the app
 always passes an explicit policy. `--noise-threshold` must be finite in
 0.0001–1. The adapter verifies denoise, sampling policy and sample cap at runtime.
 Actual per-pixel sample counts/savings are not yet measured or displayed.
+An immutable per-run settings snapshot supplies the adapter arguments and stays
+visible separately from next-render controls after profile/quality edits.
+Recommended threshold was raised to 0.03 after a 512×321 diagnostic at 0.01
+averaged 484/500 samples, giving only about 3.2% sample savings. Full-resolution
+0.03 quality/time comparison is pending. CLI default threshold remains 0.01.
 
 ## Current files
 

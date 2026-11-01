@@ -247,27 +247,8 @@ final class RenderQueueModel: ObservableObject {
             "--python", adapterURL.path, "--", job.inputURL.path,
             "--output", prepared.staged.path
         ]
-        if job.overridesResolution {
-            arguments += [
-                "--width", String(job.width),
-                "--height", String(job.height)
-            ]
-        }
-        if job.qualityProfile == .custom {
-            arguments += [
-                "--samples", String(job.samples),
-                "--bounces", String(job.bounces),
-                "--transmission-bounces", String(job.transmissionBounces)
-            ]
-        }
-        arguments.append(job.qualityProfile == .recommended || job.usesDenoising
-                         ? "--denoise" : "--no-denoise")
-        let adaptive = job.qualityProfile == .recommended || job.usesAdaptiveSampling
-        arguments.append(adaptive ? "--adaptive-sampling" : "--no-adaptive-sampling")
-        arguments += ["--noise-threshold", String(job.qualityProfile == .recommended ? 0.01 : job.noiseThreshold)]
-        if !job.showsHDRIBackground {
-            arguments.append("--hide-hdri-background")
-        }
+        let settings = job.resolvedSettings
+        arguments += settings.adapterArguments
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
         environment["TMPDIR"] = prepared.temporaryRoot.path
@@ -292,7 +273,8 @@ final class RenderQueueModel: ObservableObject {
         jobs[index].state = .rendering
         jobs[index].renderStartedUptime = ProcessInfo.processInfo.systemUptime
         jobs[index].progress = nil
-        jobs[index].log = ""
+        jobs[index].lastRunSettings = settings
+        jobs[index].log = "[Drop & View Render] Requested settings:\n\(settings.summary)\n\n"
         jobs[index].errorMessage = nil
 
         process.terminationHandler = { [weak self] completed in
