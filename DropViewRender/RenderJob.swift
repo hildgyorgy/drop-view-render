@@ -8,6 +8,8 @@ struct RenderJob: Identifiable {
     var overridesResolution: Bool
     var qualityProfile: RenderQualityProfile = .recommended
     var usesDenoising = true
+    var usesAdaptiveSampling = true
+    var noiseThreshold = 0.01
     let sourceSamples: Int
     let sourceBounces: Int
     let sourceTransmissionBounces: Int
@@ -23,6 +25,19 @@ struct RenderJob: Identifiable {
     var errorMessage: String?
     var isInputValid: Bool
     var overwriteApproved: Bool
+    var renderStartedUptime: TimeInterval?
+    var renderDuration: TimeInterval?
+
+    var elapsedRenderTime: TimeInterval? {
+        if let renderDuration { return renderDuration }
+        guard let renderStartedUptime else { return nil }
+        return max(0, ProcessInfo.processInfo.systemUptime - renderStartedUptime)
+    }
+
+    var formattedRenderTime: String {
+        let seconds = Int(elapsedRenderTime ?? 0)
+        return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+    }
 
     init(inputURL: URL, manifest: DVRenderManifest?) {
         id = UUID()

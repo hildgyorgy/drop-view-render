@@ -145,6 +145,11 @@ def bridge_arguments() -> argparse.Namespace:
         "--denoise", action=argparse.BooleanOptionalAction, default=True,
         help="Apply OpenImageDenoise to the final image (default: enabled)",
     )
+    parser.add_argument(
+        "--adaptive-sampling", action=argparse.BooleanOptionalAction, default=False,
+        help="Treat samples as a maximum and stop clean pixels early (default: disabled)",
+    )
+    parser.add_argument("--noise-threshold", type=float, default=0.01)
     return parser.parse_args(arguments)
 
 
@@ -743,6 +748,8 @@ def configure_world(
 
 
 def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: Path) -> None:
+    if not math.isfinite(args.noise_threshold) or not 0.0001 <= args.noise_threshold <= 1:
+        raise ValueError("Noise threshold must be finite and between 0.0001 and 1")
     scene.render.resolution_x = args.width
     scene.render.resolution_y = args.height
     scene.render.resolution_percentage = 100
@@ -752,7 +759,7 @@ def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: P
     scene.render.film_transparent = False
     scene.render.filepath = str(output)
     scene.cycles.samples = args.samples
-    # Keep requested fixed sampling; denoising is an independent final step.
+    # Adaptive mode changes sampling policy, never the requested sample cap.
     scene.cycles.use_denoising = args.denoise
     scene.cycles.denoiser = "OPENIMAGEDENOISE"
     scene.cycles.denoising_input_passes = "RGB_ALBEDO_NORMAL"
@@ -761,14 +768,26 @@ def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: P
     scene.cycles.denoising_use_gpu = True
     scene.cycles.max_bounces = args.bounces
     scene.cycles.transmission_bounces = args.transmission_bounces
-    scene.cycles.use_adaptive_sampling = False
-    if scene.cycles.use_denoising != args.denoise or scene.cycles.use_adaptive_sampling:
+    scene.cycles.use_adaptive_sampling = args.adaptive_sampling
+    scene.cycles.adaptive_threshold = args.noise_threshold
+    scene.cycles.adaptive_min_samples = min(32, args.samples)
+    if (scene.cycles.use_denoising != args.denoise
+            or scene.cycles.use_adaptive_sampling != args.adaptive_sampling
+            or scene.cycles.samples != args.samples):
         raise RuntimeError("Requested sampling/denoise settings were not accepted by Blender")
     print(
-        "[Drop & View Cycles] VERIFIED: adaptive sampling OFF, "
+        f"[Drop & View Cycles] VERIFIED: adaptive sampling "
+        f"{'ON' if args.adaptive_sampling else 'OFF'}, "
         f"denoise {'OIDN ON' if args.denoise else 'OFF (RAW)'}, "
-        f"fixed samples {scene.cycles.samples}"
+        f"{'maximum' if args.adaptive_sampling else 'fixed'} samples {scene.cycles.samples}"
     )
+    if args.adaptive_sampling:
+        print(
+            f"[Drop & View Cycles] Noise threshold {scene.cycles.adaptive_threshold:.4g}, "
+            f"minimum samples {scene.cycles.adaptive_min_samples}; "
+            "clean pixels may stop before the maximum sample count",
+            flush=True,
+        )
     scene.render.use_file_extension = True
     try:
         scene.view_settings.look = "AgX - Medium High Contrast"
@@ -856,7 +875,7 @@ def main() -> None:
 
         print(
             f"[Drop & View Cycles] Rendering {args.width}x{args.height}, "
-            f"{args.samples} fixed samples, "
+            f"{args.samples} {'maximum' if args.adaptive_sampling else 'fixed'} samples, "
             f"denoise {'OIDN ON' if args.denoise else 'OFF (RAW)'} -> {output}"
         )
         print(

@@ -19,15 +19,22 @@ The repository is a native SwiftUI macOS application. It:
   HDRI background without disabling HDRI lighting or reflections;
 - writes `<input-name>-cycles.png` next to the input through a temporary staging
   file, so a failed or cancelled render cannot leave a partial final image;
-- streams Blender output into the job UI and supports cancel, Render Again and
-  Show in Finder.
+- streams Blender output into the job UI and supports cancel and Show in Finder;
+- uses the same toolbar Render button for initial renders and rerenders of the
+  selected finished job, confirming replacement of an existing destination;
+- shows live elapsed time and retains total job time (including Blender startup,
+  import, rendering, denoising and output finalization) after completion or cancellation.
 
 Render quality has two profiles: **Recommended** keeps the package/default
-sample and bounce counts and enables OpenImageDenoise; **Custom** lets the
-user edit those counts and toggle denoising, including an unfiltered RAW
-comparison. Switching profiles preserves Custom values. Resolution has its
-own independent override. Adaptive sampling remains disabled, so every
-requested sample is evaluated. OIDN uses albedo/normal guidance, accurate
+sample count as a maximum, preserves bounce limits and enables adaptive sampling
+(noise threshold 0.01) and OpenImageDenoise. **Custom** lets the user edit those
+counts, toggle denoising and adaptive sampling, and select a noise threshold.
+Disable both switches for a fixed-sample RAW comparison. Switching profiles
+preserves Custom values. Resolution has its own independent override.
+Adaptive sampling stops clean pixels early; minimum samples is 32 or the
+requested maximum if lower. A lower noise threshold asks for a cleaner image.
+No actual per-pixel sample statistics or savings are currently reported.
+OIDN uses albedo/normal guidance, accurate
 prefiltering and high quality, with GPU acceleration requested when available.
 
 Exporter-selected clear glass (`material.extras.archicad.clearGlassOverride`
@@ -72,6 +79,8 @@ Optional arguments after `--`:
 --samples 500
 --bounces 6 --transmission-bounces 10
 --denoise / --no-denoise
+--adaptive-sampling / --no-adaptive-sampling
+--noise-threshold 0.01
 ```
 
 `--hide-hdri-background` keeps HDRI illumination, sun alignment and reflections
@@ -80,6 +89,9 @@ neutral background concept used by the Drop & View path tracer.
 
 Denoising is enabled by default; pass `--no-denoise` for RAW output. These are
 local rendering options and do not change the `.dvrender` v1 format.
+The CLI keeps fixed sampling by default for compatibility; the native app
+passes adaptive sampling explicitly. Requested sample counts are never
+rewritten: with adaptive sampling they are the maximum per pixel.
 
 Plain GLB renders use the bundled Drop & View default environment unless an
 HDRI is supplied explicitly. The bundled `backdrop.hdr` is the **Pure Skies**

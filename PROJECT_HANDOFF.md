@@ -47,13 +47,18 @@ Verified on an Apple M1 Max with Blender 5.2.3:
   confirmed the improvement on 2026-11-01.
 
 The app now has Recommended and Custom quality profiles. Recommended preserves
-source/default sample and bounce counts with OpenImageDenoise enabled. Custom
-allows editing counts and disabling denoise for RAW comparisons, and retains
-its settings when switching profiles. Resolution is independently overridden.
+source/default sample counts as a maximum and keeps bounce limits, enabling
+adaptive sampling (noise threshold 0.01) and OpenImageDenoise. Custom allows
+editing counts, toggling adaptive sampling/denoise and selecting noise thresholds,
+and retains its settings when switching profiles. Resolution is independently overridden.
 The adapter defaults to denoise ON (`--no-denoise` disables it); it uses albedo
 and normal guidance, accurate prefiltering, high quality and requests GPU
-acceleration. Adaptive sampling remains OFF pending separate quality testing.
-The adapter verifies denoise and fixed-sampling settings at runtime.
+acceleration. Adaptive sampling has a minimum of 32 samples (capped at the
+requested maximum); disable adaptive and denoise for a fixed-sample RAW comparison.
+The CLI retains fixed sampling unless `--adaptive-sampling` is passed; the app
+always passes an explicit policy. `--noise-threshold` must be finite in
+0.0001–1. The adapter verifies denoise, sampling policy and sample cap at runtime.
+Actual per-pixel sample counts/savings are not yet measured or displayed.
 
 ## Current files
 
@@ -99,6 +104,10 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
 - [x] Blender executable discovery and initial diagnostics;
 - [x] subprocess launch with streamed stdout/stderr;
 - [x] job state UI, Cancel and Show in Finder;
+- [x] unified toolbar Render action for selected rerenders and pending jobs,
+      with existing-output replacement confirmation;
+- [x] monotonic elapsed/total job time in sidebar, details and final log,
+      including preparation, denoise and output finalization;
 - [x] PNG destination and current adapter quality arguments;
 - [x] camera-visible HDRI background override that preserves environment
       lighting, reflections and sun alignment;
@@ -106,8 +115,9 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
 - [ ] reliable remaining-time reporting;
 - [x] Recommended/Custom quality profiles and denoise toggle backed by adapter
       arguments, with independent resolution override;
-- [ ] user-facing adaptive sampling and output-format controls backed by
-      matching adapter arguments;
+- [x] adaptive sampling toggle and noise threshold selection backed by adapter
+      arguments, with explicit maximum-sample UI;
+- [ ] output-format controls backed by matching adapter arguments;
 - [ ] automated package-reader tests and a native-app smoke-render workflow;
 - [ ] signing, notarization and release packaging decisions.
 

@@ -38,9 +38,14 @@ final class RenderQueueModel: ObservableObject {
     var canStart: Bool {
         blender.executableURL != nil
             && !isRendering
-            && jobs.contains {
-                $0.isInputValid && ($0.state == .queued || $0.state == .failed || $0.state == .cancelled)
-            }
+            && !jobsToStart.isEmpty
+    }
+
+    private var jobsToStart: [RenderJob] {
+        jobs.filter {
+            $0.isInputValid && ($0.state == .queued || $0.state == .failed
+                || $0.state == .cancelled || ($0.id == selectedJobID && $0.state == .finished))
+        }
     }
 
     var selectedJobBinding: Binding<RenderJob>? {
@@ -167,25 +172,27 @@ final class RenderQueueModel: ObservableObject {
     }
 
     func startQueue() {
-        guard process == nil else { return }
-        for index in jobs.indices
-            where jobs[index].isInputValid
-                && (jobs[index].state == .failed || jobs[index].state == .cancelled) {
+        guard canStart, process == nil else { return }
+        let candidates = jobsToStart
+        var approved = Set<UUID>()
+        for job in candidates where !job.overwriteApproved
+            && FileManager.default.fileExists(atPath: job.outputURL.path) {
+            let alert = NSAlert()
+            alert.messageText = "Replace existing render?"
+            alert.informativeText = "\(job.outputURL.path)\n\nThe existing image will be replaced only after the new render completes successfully. Use Choose… to save a separate comparison image."
+            alert.addButton(withTitle: "Replace and Render")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            approved.insert(job.id)
+        }
+        let candidateIDs = Set(candidates.map(\.id))
+        for index in jobs.indices where candidateIDs.contains(jobs[index].id) {
             jobs[index].state = .queued
+            jobs[index].errorMessage = nil
+            if approved.contains(jobs[index].id) { jobs[index].overwriteApproved = true }
         }
         queueShouldContinue = true
-        startNextJob()
-    }
-
-    func renderAgain(_ id: UUID) {
-        guard let index = jobs.firstIndex(where: { $0.id == id }),
-              jobs[index].isInputValid,
-              jobs[index].state != .rendering else { return }
-        jobs[index].overwriteApproved = FileManager.default.fileExists(atPath: jobs[index].outputURL.path)
-        jobs[index].state = .queued
-        jobs[index].errorMessage = nil
-        queueShouldContinue = true
-        if process == nil { startNextJob() }
+        startNextJob(preferredID: selectedJobID)
     }
 
     func cancelRender() {
@@ -203,12 +210,15 @@ final class RenderQueueModel: ObservableObject {
         requestCancellation()
     }
 
-    private func startNextJob() {
+    private func startNextJob(preferredID: UUID? = nil) {
         guard queueShouldContinue,
               let blenderURL = blender.executableURL,
-              let index = jobs.firstIndex(where: { $0.state == .queued }) else {
+              let index = jobs.firstIndex(where: { $0.id == preferredID && $0.state == .queued })
+                ?? jobs.firstIndex(where: { $0.state == .queued }) else {
             return
         }
+        jobs[index].renderStartedUptime = nil
+        jobs[index].renderDuration = nil
         guard let adapterURL = Bundle.main.url(forResource: "render_glb", withExtension: "py") else {
             failJob(at: index, message: "The bundled Blender adapter is missing.")
             continueQueueSoon()
@@ -252,6 +262,9 @@ final class RenderQueueModel: ObservableObject {
         }
         arguments.append(job.qualityProfile == .recommended || job.usesDenoising
                          ? "--denoise" : "--no-denoise")
+        let adaptive = job.qualityProfile == .recommended || job.usesAdaptiveSampling
+        arguments.append(adaptive ? "--adaptive-sampling" : "--no-adaptive-sampling")
+        arguments += ["--noise-threshold", String(job.qualityProfile == .recommended ? 0.01 : job.noiseThreshold)]
         if !job.showsHDRIBackground {
             arguments.append("--hide-hdri-background")
         }
@@ -277,6 +290,7 @@ final class RenderQueueModel: ObservableObject {
         isRendering = true
         cancellationRequestedForJobID = nil
         jobs[index].state = .rendering
+        jobs[index].renderStartedUptime = ProcessInfo.processInfo.systemUptime
         jobs[index].progress = nil
         jobs[index].log = ""
         jobs[index].errorMessage = nil
@@ -481,6 +495,12 @@ final class RenderQueueModel: ObservableObject {
     }
 
     private func cleanup(_ run: ActiveRun) {
+        if let index = jobs.firstIndex(where: { $0.id == run.jobID }),
+           let started = jobs[index].renderStartedUptime {
+            let duration = max(0, ProcessInfo.processInfo.systemUptime - started)
+            jobs[index].renderDuration = duration
+            jobs[index].log.append("\n[Drop & View Render] Total time (including preparation and denoise): \(jobs[index].formattedRenderTime)\n")
+        }
         ProcessInfo.processInfo.endActivity(run.activity)
         if FileManager.default.fileExists(atPath: run.stagedOutputURL.path) {
             try? FileManager.default.removeItem(at: run.stagedOutputURL)

@@ -25,6 +25,7 @@ struct ContentView: View {
                     Label("Render", systemImage: "play.fill")
                 }
                 .disabled(!model.canStart)
+                .help("Render the selected job and pending jobs. Completed jobs can be rendered again with this button.")
 
                 Button {
                     model.cancelRender()
@@ -143,6 +144,9 @@ private struct JobRow: View {
                 Text(job.state.label)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if job.elapsedRenderTime != nil {
+                    RenderTimeLabel(job: job, compact: true)
+                }
             }
             Spacer()
             if job.state == .rendering {
@@ -193,6 +197,9 @@ private struct JobDetail: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
+                if job.elapsedRenderTime != nil {
+                    RenderTimeLabel(job: job)
+                }
                 if let error = job.errorMessage {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
@@ -219,17 +226,18 @@ private struct JobDetail: View {
                 .disabled(job.state == .rendering)
 
                 if job.qualityProfile == .recommended {
-                    LabeledContent("Samples", value: String(job.sourceSamples))
+                    LabeledContent("Maximum samples", value: String(job.sourceSamples))
                     LabeledContent("Bounces", value: String(job.sourceBounces))
                     LabeledContent("Transmission bounces", value: String(job.sourceTransmissionBounces))
                     LabeledContent("Denoise", value: "On")
-                    Text("Keeps source/default quality values and applies denoising to the final image.")
+                    LabeledContent("Adaptive sampling", value: "On · noise threshold 0.01")
+                    Text("Uses the source sample count as a maximum. Clean pixels may finish earlier; denoising runs after sampling. Bounce limits are preserved.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                         GridRow {
-                            Text("Samples")
+                            Text(job.usesAdaptiveSampling ? "Maximum samples" : "Samples")
                             IntegerField(value: $job.samples, range: 1...100_000)
                         }
                         GridRow {
@@ -244,7 +252,21 @@ private struct JobDetail: View {
                     .disabled(job.state == .rendering)
                     Toggle("Denoise", isOn: $job.usesDenoising)
                         .disabled(job.state == .rendering)
-                    Text("Turn denoising off for an unfiltered RAW comparison. Sample and bounce counts are never reduced automatically.")
+                    Toggle("Adaptive sampling", isOn: $job.usesAdaptiveSampling)
+                        .disabled(job.state == .rendering)
+                    if job.usesAdaptiveSampling {
+                        Picker("Noise threshold", selection: $job.noiseThreshold) {
+                            Text("0.1 — faster").tag(0.1)
+                            Text("0.03").tag(0.03)
+                            Text("0.01 — recommended").tag(0.01)
+                            Text("0.003").tag(0.003)
+                            Text("0.001 — cleaner").tag(0.001)
+                        }
+                        .disabled(job.state == .rendering)
+                    }
+                    Text(job.usesAdaptiveSampling
+                         ? "Samples is an upper limit. A lower noise threshold asks for a cleaner image and may take longer."
+                         : "Every pixel receives the requested sample count. Turn denoise off too for a fixed-sample RAW comparison.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -302,9 +324,6 @@ private struct JobDetail: View {
                         Button("Show in Finder") {
                             model.reveal(job.outputURL)
                         }
-                        Button("Render Again") {
-                            model.renderAgain(job.id)
-                        }
                     }
                 }
             }
@@ -322,6 +341,19 @@ private struct JobDetail: View {
                     .padding(8)
             }
             .frame(minHeight: 120, maxHeight: 260)
+        }
+    }
+}
+
+private struct RenderTimeLabel: View {
+    let job: RenderJob
+    var compact = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text("\(job.state == .rendering ? "Elapsed" : "Total time"): \(job.formattedRenderTime)")
+                .font(compact ? .caption2.monospacedDigit() : .callout.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
     }
 }
