@@ -3,8 +3,8 @@
 - Read `PROJECT_HANDOFF.md`, `README.md` and `docs/DVRENDER_FORMAT.md` before changes.
 - Preserve compatibility with the `.dvrender` v1 contract produced by
   `hildgyorgy/drop-3d-view`.
-- Treat `prototype/macos-droplet/` as the verified proof of concept. Keep it
-  working while the native application is developed beside it.
+- Treat `DropViewRender/Resources/render_glb.py` as the production Blender
+  adapter. Keep its `.dvrender` behavior compatible with the verified renderer.
 - Target Blender 5.2.3 LTS. Do not make beta Blender versions a requirement.
 - Do not bundle a separate Python runtime; Blender's own Python runs the `bpy` adapter.
 - Do not vendor Blender itself without an explicit packaging and licence decision.

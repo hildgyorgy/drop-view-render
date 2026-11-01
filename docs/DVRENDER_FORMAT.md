@@ -79,8 +79,8 @@ The Drop & View producer refuses export while SECTION is enabled.
 - filenames must not contain path separators, control characters, `.` or `..`.
 
 Consumers must validate all lengths before extraction and must reject trailing,
-truncated or aliased resources. The Python prototype extracts resources to a
-fresh temporary directory and does not trust packaged filenames as paths.
+truncated or aliased resources. The bundled Python adapter extracts resources
+to a fresh temporary directory and does not trust packaged filenames as paths.
 
 ## Deliberately absent
 

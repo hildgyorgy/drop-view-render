@@ -9,11 +9,11 @@ web application. The web app composes the model, materials, camera and lighting;
 this project renders the resulting GLB or `.dvrender` package through
 Blender/Cycles without requiring Blender knowledge.
 
-## Verified prototype
+## Verified renderer path
 
-The working macOS proof of concept was copied from
-`drop-3d-view/tools/cycles/` to `prototype/macos-droplet/` without removing the
-source copy yet.
+The Blender adapter was proven first in the macOS droplet and now lives as an
+application resource at `DropViewRender/Resources/render_glb.py`. The old
+Terminal/AppleScript droplet has been retired from this repository.
 
 Verified on an Apple M1 Max with Blender 5.2.3:
 
@@ -27,8 +27,8 @@ Verified on an Apple M1 Max with Blender 5.2.3:
   a second Sun lamp.
 - A 3456 × 2168 / 500-sample architectural image completed in roughly two to
   four minutes on the M1 Max, depending on settings and scene state.
-- Terminal reports preparation activity, elapsed time, render progress when
-  Blender exposes sample statistics, final path and READY.
+- The native app streams preparation activity, Blender output, final path and
+  READY into its job UI.
 
 The current adapter deliberately forces fixed samples with adaptive sampling
 OFF and denoising OFF for a temporary image-quality benchmark. It verifies
@@ -36,13 +36,11 @@ those Blender properties at runtime. Production defaults still need a decision.
 
 ## Current files
 
-- `prototype/macos-droplet/render_glb.py` — package decoder, Blender import,
+- `DropViewRender.xcodeproj` — native macOS application project.
+- `DropViewRender/` — SwiftUI job UI, package preview validation,
+  Blender discovery and subprocess queue.
+- `DropViewRender/Resources/render_glb.py` — package decoder, Blender import,
   Cycles/Metal configuration, camera/HDRI/visibility restoration and output.
-- `prototype/macos-droplet/Render with Cycles.command` — Blender discovery,
-  Terminal workflow, activity display and Finder reveal.
-- `prototype/macos-droplet/Drop & View Cycles.applescript` — file chooser and
-  launcher source.
-- `prototype/macos-droplet/Drop & View Cycles.app` — compiled proof-of-concept droplet.
 - `docs/DVRENDER_FORMAT.md` — v1 interoperability contract.
 
 ## Product decisions
@@ -73,26 +71,33 @@ framing and a neutral/default environment.
 
 ## Next engineering milestone
 
-Create the native SwiftUI shell without replacing the verified Python adapter:
+Complete and harden the native SwiftUI application and bundled Python adapter:
 
-- Xcode project and stable bundle identifier;
-- drag-and-drop and Open panel for GLB/`.dvrender`;
-- Blender executable discovery and actionable diagnostics;
-- subprocess launch with streamed stdout/stderr;
-- job state/progress UI, Cancel and Show in Finder;
-- output and quality controls mapped to adapter arguments.
-
-Only after this shell works should the Terminal droplet be retired or renamed.
+- [x] Xcode project and stable bundle identifier;
+- [x] drag-and-drop and Open panel for GLB/`.dvrender`;
+- [x] Blender executable discovery and initial diagnostics;
+- [x] subprocess launch with streamed stdout/stderr;
+- [x] job state UI, Cancel and Show in Finder;
+- [x] PNG destination and current adapter quality arguments;
+- [x] camera-visible HDRI background override that preserves environment
+      lighting, reflections and sun alignment;
+- [ ] reliable machine-readable Cycles progress and remaining-time reporting;
+- [ ] user-facing adaptive sampling, denoise and output-format controls backed
+      by matching adapter arguments;
+- [ ] automated package-reader tests and a native-app smoke-render workflow;
+- [ ] signing, notarization and release packaging decisions.
 
 ## Repository split checklist
 
-- [x] Copy verified prototype to the new project.
+- [x] Import the verified renderer into the new project.
 - [x] Add independent README, handoff, repository guidance and format spec.
 - [x] Initialize local Git repository and make the initial commit.
 - [x] Create and push the public GitHub repository:
       `https://github.com/hildgyorgy/drop-view-render`.
 - [x] Add a compatibility link in `drop-3d-view/tools/cycles/README.md`.
-- [x] Remove the old prototype copy from Drop & View after the new remote and
+- [x] Remove the old renderer copy from Drop & View after the new remote and
       a smoke render were verified. The removed `.app` bundle was moved to the
       macOS Trash as a recoverable precaution.
+- [x] Retire the copied Terminal/AppleScript droplet after the native app
+      completed a full-quality `.dvrender` render.
 

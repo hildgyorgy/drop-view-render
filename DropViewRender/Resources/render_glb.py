@@ -125,6 +125,7 @@ def bridge_arguments() -> argparse.Namespace:
     parser.add_argument("input", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--hdri", type=Path)
+    parser.add_argument("--hide-hdri-background", action="store_true")
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
     parser.add_argument("--samples", type=int)
@@ -479,10 +480,12 @@ def saved_sun_direction(view_session: dict | None) -> Vector | None:
 
 
 def configure_world(
-    scene: bpy.types.Scene, hdri: Path | None, view_session: dict | None = None
+    scene: bpy.types.Scene,
+    hdri: Path | None,
+    view_session: dict | None = None,
+    hide_hdri_background: bool = False,
 ) -> None:
     world = bpy.data.worlds.new("Drop View World")
-    world.use_nodes = True
     scene.world = world
     nodes = world.node_tree.nodes
     links = world.node_tree.links
@@ -490,7 +493,6 @@ def configure_world(
     output = nodes.new("ShaderNodeOutputWorld")
     background = nodes.new("ShaderNodeBackground")
     background.inputs["Strength"].default_value = 0.8
-    links.new(background.outputs["Background"], output.inputs["Surface"])
     if hdri and hdri.is_file():
         environment = nodes.new("ShaderNodeTexEnvironment")
         environment.image = bpy.data.images.load(str(hdri), check_existing=True)
@@ -505,9 +507,33 @@ def configure_world(
         links.new(coordinates.outputs["Generated"], mapping.inputs["Vector"])
         links.new(mapping.outputs["Vector"], environment.inputs["Vector"])
         links.new(environment.outputs["Color"], background.inputs["Color"])
+        if hide_hdri_background:
+            camera_background = nodes.new("ShaderNodeBackground")
+            # Drop & View's path tracer keeps its #efefed canvas behind the
+            # model while the HDRI remains active for lighting and reflections.
+            camera_background.inputs["Color"].default_value = (
+                0.863,
+                0.863,
+                0.847,
+                1.0,
+            )
+            camera_background.inputs["Strength"].default_value = 1.0
+            light_path = nodes.new("ShaderNodeLightPath")
+            camera_mix = nodes.new("ShaderNodeMixShader")
+            links.new(light_path.outputs["Is Camera Ray"], camera_mix.inputs[0])
+            links.new(background.outputs["Background"], camera_mix.inputs[1])
+            links.new(camera_background.outputs["Background"], camera_mix.inputs[2])
+            links.new(camera_mix.outputs["Shader"], output.inputs["Surface"])
+            print(
+                "[Drop & View Cycles] HDRI background hidden; "
+                "lighting and reflections remain active"
+            )
+        else:
+            links.new(background.outputs["Background"], output.inputs["Surface"])
         print(f"[Drop & View Cycles] HDRI: {hdri}")
     else:
         background.inputs["Color"].default_value = (0.12, 0.15, 0.2, 1.0)
+        links.new(background.outputs["Background"], output.inputs["Surface"])
 
 
 def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: Path) -> None:
@@ -608,7 +634,12 @@ def main() -> None:
         # brightest point is rotated to the saved sun controls below.
         if not packaged_hdri:
             create_sun(scene, center, radius, metadata, view_session)
-        configure_world(scene, hdri, view_session if packaged_hdri else None)
+        configure_world(
+            scene,
+            hdri,
+            view_session if packaged_hdri else None,
+            hide_hdri_background=args.hide_hdri_background,
+        )
         configure_render(scene, args, output)
 
         print(
