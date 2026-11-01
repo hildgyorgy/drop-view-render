@@ -92,3 +92,18 @@ accumulated samples, final PNG/EXR and Blender scene data are not embedded.
 The GLB at resource 0 is already materialized: all applied Material Workbench
 changes are real glTF materials, textures and UV data.
 
+## Clear glass material policy
+
+The Archicad exporter can explicitly mark materials with
+`materials[i].extras.archicad.clearGlassOverride: true`. Drop & View preserves
+this marker in the materialized GLB; no new manifest field or v1 change is
+needed. The renderer enables Blender's native Thin Wall mode only for marked
+materials with positive `KHR_materials_transmission.transmissionFactor` and
+absent/zero `KHR_materials_volume.thicknessFactor`. Unmarked materials and
+positive-thickness volumes retain their imported shading. Alpha blending or
+a material/object name alone never identifies clear glass.
+The marked thin-glass policy also includes colored, transmission-weighted
+transparency for shadow rays, to admit direct HDRI light into interiors.
+Camera and reflection rays retain the imported Thin Wall surface. Shadow
+refraction/caustics are approximated; no source GLB or package bytes are changed.
+

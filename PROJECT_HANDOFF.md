@@ -33,10 +33,27 @@ Verified on an Apple M1 Max with Blender 5.2.3:
   Blender reports success and a non-empty image is verified. Cancellation
   pauses the queue and escalates from interrupt to termination if necessary.
 - Plain GLB files use the bundled, CC0 Drop & View default environment.
+- The importer maps exporter-selected clear glass (material extras:
+  `archicad.clearGlassOverride == true`, positive transmission, absent/zero
+  volume thickness) to the native Blender 5.2 Principled Thin Wall input.
+  Unmarked, positive-thickness and alpha-only materials are not converted.
+  This uses a scoped material-hook dispatcher wrapper restored after import;
+  recheck that integration when changing the supported Blender version.
+  A real interior A/B render showed Thin Wall alone still blocking direct
+  HDRI illumination. Marked thin glass therefore also uses a shadow-only
+  Transparent BSDF branch preserving base color and transmission weighting;
+  camera/reflection shading remains Thin Wall. This is a straight-through
+  approximation, not refractive caustics. Full-resolution interior user review
+  confirmed the improvement on 2026-11-01.
 
-The current adapter deliberately forces fixed samples with adaptive sampling
-OFF and denoising OFF for a temporary image-quality benchmark. It verifies
-those Blender properties at runtime. Production defaults still need a decision.
+The app now has Recommended and Custom quality profiles. Recommended preserves
+source/default sample and bounce counts with OpenImageDenoise enabled. Custom
+allows editing counts and disabling denoise for RAW comparisons, and retains
+its settings when switching profiles. Resolution is independently overridden.
+The adapter defaults to denoise ON (`--no-denoise` disables it); it uses albedo
+and normal guidance, accurate prefiltering, high quality and requests GPU
+acceleration. Adaptive sampling remains OFF pending separate quality testing.
+The adapter verifies denoise and fixed-sampling settings at runtime.
 
 ## Current files
 
@@ -87,8 +104,10 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
       lighting, reflections and sun alignment;
 - [x] machine-readable Cycles sample progress in Blender's piped output;
 - [ ] reliable remaining-time reporting;
-- [ ] user-facing adaptive sampling, denoise and output-format controls backed
-      by matching adapter arguments;
+- [x] Recommended/Custom quality profiles and denoise toggle backed by adapter
+      arguments, with independent resolution override;
+- [ ] user-facing adaptive sampling and output-format controls backed by
+      matching adapter arguments;
 - [ ] automated package-reader tests and a native-app smoke-render workflow;
 - [ ] signing, notarization and release packaging decisions.
 

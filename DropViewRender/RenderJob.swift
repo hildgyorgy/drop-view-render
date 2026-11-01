@@ -5,7 +5,12 @@ struct RenderJob: Identifiable {
     let inputURL: URL
     var outputURL: URL
     var packageSummary: String?
-    var overridesSourceSettings: Bool
+    var overridesResolution: Bool
+    var qualityProfile: RenderQualityProfile = .recommended
+    var usesDenoising = true
+    let sourceSamples: Int
+    let sourceBounces: Int
+    let sourceTransmissionBounces: Int
     var width: Int
     var height: Int
     var samples: Int
@@ -24,12 +29,15 @@ struct RenderJob: Identifiable {
         self.inputURL = inputURL
         outputURL = inputURL.deletingLastPathComponent()
             .appendingPathComponent("\(inputURL.deletingPathExtension().lastPathComponent)-cycles.png")
-        overridesSourceSettings = false
+        overridesResolution = false
         width = manifest?.renderSize?.width ?? 1_280
         height = manifest?.renderSize?.height ?? 720
         samples = manifest?.renderJob?.samples ?? 64
         bounces = manifest?.renderJob?.bounces ?? 6
         transmissionBounces = manifest?.renderJob?.transmissiveBounces ?? 10
+        sourceSamples = samples
+        sourceBounces = bounces
+        sourceTransmissionBounces = transmissionBounces
         showsHDRIBackground = true
         state = .queued
         progress = nil
@@ -46,6 +54,14 @@ struct RenderJob: Identifiable {
             packageSummary = "Plain GLB · adapter defaults until overridden"
         }
     }
+}
+
+enum RenderQualityProfile: String, CaseIterable, Identifiable {
+    case recommended
+    case custom
+
+    var id: String { rawValue }
+    var label: String { self == .recommended ? "Recommended" : "Custom" }
 }
 
 enum RenderState: Equatable {

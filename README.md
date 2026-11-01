@@ -22,9 +22,26 @@ The repository is a native SwiftUI macOS application. It:
 - streams Blender output into the job UI and supports cancel, Render Again and
   Show in Finder.
 
-The bundled adapter currently runs a deliberate RAW benchmark configuration:
-adaptive sampling and denoising are disabled. This is temporary and must become
-a user-facing render preset.
+Render quality has two profiles: **Recommended** keeps the package/default
+sample and bounce counts and enables OpenImageDenoise; **Custom** lets the
+user edit those counts and toggle denoising, including an unfiltered RAW
+comparison. Switching profiles preserves Custom values. Resolution has its
+own independent override. Adaptive sampling remains disabled, so every
+requested sample is evaluated. OIDN uses albedo/normal guidance, accurate
+prefiltering and high quality, with GPU acceleration requested when available.
+
+Exporter-selected clear glass (`material.extras.archicad.clearGlassOverride`
+equal to `true`) with positive glTF transmission and no positive
+`KHR_materials_volume` thickness uses Blender 5.2's native Principled BSDF
+**Thin Wall** mode. Unmarked materials, positive-thickness glass and alpha-only
+transparency retain their imported behavior. Material colors, textures and
+transmission weights remain imported as supplied. Each conversion is listed
+in Blender output. The marker is already preserved in `.dvrender` v1's GLB.
+Marked thin glass also gets a shadow-only Transparent BSDF branch, tinted by
+its base color and weighted by its transmission (including linked textures).
+This straight-through approximation admits direct environment light into
+interiors; it does not reproduce refractive caustics. Camera/reflection rays
+keep the imported Thin Wall surface.
 
 The Swift sources and bundled Blender adapter live in `DropViewRender/`. No
 separate Python runtime, Terminal launcher, AppleScript droplet or legacy helper
@@ -54,11 +71,15 @@ Optional arguments after `--`:
 --width 1920 --height 1080
 --samples 500
 --bounces 6 --transmission-bounces 10
+--denoise / --no-denoise
 ```
 
 `--hide-hdri-background` keeps HDRI illumination, sun alignment and reflections
 active while replacing the camera-visible environment image with the same
 neutral background concept used by the Drop & View path tracer.
+
+Denoising is enabled by default; pass `--no-denoise` for RAW output. These are
+local rendering options and do not change the `.dvrender` v1 format.
 
 Plain GLB renders use the bundled Drop & View default environment unless an
 HDRI is supplied explicitly. The bundled `backdrop.hdr` is the **Pure Skies**

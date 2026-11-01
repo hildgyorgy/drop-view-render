@@ -237,15 +237,21 @@ final class RenderQueueModel: ObservableObject {
             "--python", adapterURL.path, "--", job.inputURL.path,
             "--output", prepared.staged.path
         ]
-        if job.overridesSourceSettings {
+        if job.overridesResolution {
             arguments += [
                 "--width", String(job.width),
-                "--height", String(job.height),
+                "--height", String(job.height)
+            ]
+        }
+        if job.qualityProfile == .custom {
+            arguments += [
                 "--samples", String(job.samples),
                 "--bounces", String(job.bounces),
                 "--transmission-bounces", String(job.transmissionBounces)
             ]
         }
+        arguments.append(job.qualityProfile == .recommended || job.usesDenoising
+                         ? "--denoise" : "--no-denoise")
         if !job.showsHDRIBackground {
             arguments.append("--hide-hdri-background")
         }

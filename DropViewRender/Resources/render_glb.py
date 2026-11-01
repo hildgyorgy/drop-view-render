@@ -7,6 +7,7 @@ packaged scene state without opening Blender's interface.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import math
 import re
@@ -140,6 +141,10 @@ def bridge_arguments() -> argparse.Namespace:
     parser.add_argument("--samples", type=int)
     parser.add_argument("--bounces", type=int)
     parser.add_argument("--transmission-bounces", type=int)
+    parser.add_argument(
+        "--denoise", action=argparse.BooleanOptionalAction, default=True,
+        help="Apply OpenImageDenoise to the final image (default: enabled)",
+    )
     return parser.parse_args(arguments)
 
 
@@ -313,6 +318,109 @@ def reset_scene() -> None:
         for datablock in list(datablocks):
             if datablock.users == 0:
                 datablocks.remove(datablock)
+
+
+def configure_thin_glass(source_material, material: bpy.types.Material) -> bool:
+    """Map exporter-selected clear glass to Blender 5.2's native thin model.
+
+    Alpha transparency alone is not glass. Positive volume thickness retains
+    solid refraction, even when a thickness texture is also present.
+    """
+    extras = source_material.extras or {}
+    archicad = extras.get("archicad") if isinstance(extras, dict) else None
+    if not isinstance(archicad, dict) or archicad.get("clearGlassOverride") is not True:
+        return False
+    extensions = source_material.extensions or {}
+    transmission = extensions.get("KHR_materials_transmission") or {}
+    volume = extensions.get("KHR_materials_volume") or {}
+    if transmission.get("transmissionFactor", 0) <= 0:
+        return False
+    if volume.get("thicknessFactor", 0) > 0:
+        return False
+    changed = False
+    for node in list(material.node_tree.nodes):
+        if node.type != "BSDF_PRINCIPLED":
+            continue
+        socket = node.inputs.get("Thin Wall")
+        if socket is None:
+            raise RuntimeError("Thin glass requires Blender 5.2's Thin Wall input")
+        socket.default_value = True
+        changed = True
+    if changed:
+        configure_glass_shadows(material)
+        print(
+            f"[Drop & View Cycles] Thin Wall + transmissive shadows "
+            f"(exporter-selected clear glass): {material.name}",
+            flush=True,
+        )
+    return changed
+
+
+def configure_glass_shadows(material: bpy.types.Material) -> None:
+    """Approximate straight-through shadow transport for architectural glass.
+
+    Thin Wall alone still blocks direct environment lighting in our interior
+    regression scene. Keep the imported surface for camera/reflection rays;
+    only shadow rays use colored transparency weighted by transmission.
+    This deliberately approximates refraction and does not generate caustics.
+    """
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    shader = next(node for node in nodes if node.type == "BSDF_PRINCIPLED")
+    for output in list(nodes):
+        if output.type != "OUTPUT_MATERIAL" or not output.inputs["Surface"].is_linked:
+            continue
+        surface = output.inputs["Surface"].links[0].from_socket
+        transparent = nodes.new("ShaderNodeBsdfTransparent")
+        transparent.label = "Clear glass shadow tint"
+        color = shader.inputs["Base Color"]
+        transparent.inputs["Color"].default_value = color.default_value
+        if color.is_linked:
+            links.new(color.links[0].from_socket, transparent.inputs["Color"])
+        light_path = nodes.new("ShaderNodeLightPath")
+        weight = nodes.new("ShaderNodeMath")
+        weight.operation = "MULTIPLY"
+        weight.label = "Shadow ray × glass transmission"
+        links.new(light_path.outputs["Is Shadow Ray"], weight.inputs[0])
+        transmission = shader.inputs["Transmission Weight"]
+        weight.inputs[1].default_value = transmission.default_value
+        if transmission.is_linked:
+            links.new(transmission.links[0].from_socket, weight.inputs[1])
+        mix = nodes.new("ShaderNodeMixShader")
+        mix.label = "Architectural clear glass shadows"
+        links.new(weight.outputs[0], mix.inputs[0])
+        links.new(surface, mix.inputs[1])
+        links.new(transparent.outputs[0], mix.inputs[2])
+        links.new(mix.outputs[0], output.inputs["Surface"])
+
+
+def import_model(model_path: Path) -> None:
+    # Scope the importer's material hook to this import. Using the source
+    # material avoids guessing by names or losing glTF thickness information.
+    # The dispatcher is restored even if import or material conversion fails.
+    material_module = importlib.import_module(
+        "io_scene_gltf2.blender.imp.material"
+    )
+    original_hook = material_module.import_user_extensions
+    converted = 0
+
+    def material_hook(hook_name, gltf, *arguments):
+        nonlocal converted
+        original_hook(hook_name, gltf, *arguments)
+        if hook_name == "gather_import_material_after_hook":
+            source_material, _vertex_color, material = arguments
+            converted += int(configure_thin_glass(source_material, material))
+
+    material_module.import_user_extensions = material_hook
+    try:
+        bpy.ops.import_scene.gltf(
+            filepath=str(model_path),
+            import_pack_images=True,
+            import_shading="NORMALS",
+            import_scene_extras=True,
+        )
+    finally:
+        material_module.import_user_extensions = original_hook
+    print(f"[Drop & View Cycles] Thin Wall materials configured: {converted}", flush=True)
 
 
 def enable_cycles_metal(scene: bpy.types.Scene) -> list[str]:
@@ -644,18 +752,22 @@ def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: P
     scene.render.film_transparent = False
     scene.render.filepath = str(output)
     scene.cycles.samples = args.samples
-    # Temporary RAW benchmark mode: evaluate every requested sample on every
-    # pixel and keep the unfiltered Cycles result for timing/quality comparison.
-    scene.cycles.use_denoising = False
+    # Keep requested fixed sampling; denoising is an independent final step.
+    scene.cycles.use_denoising = args.denoise
     scene.cycles.denoiser = "OPENIMAGEDENOISE"
+    scene.cycles.denoising_input_passes = "RGB_ALBEDO_NORMAL"
+    scene.cycles.denoising_prefilter = "ACCURATE"
+    scene.cycles.denoising_quality = "HIGH"
+    scene.cycles.denoising_use_gpu = True
     scene.cycles.max_bounces = args.bounces
     scene.cycles.transmission_bounces = args.transmission_bounces
     scene.cycles.use_adaptive_sampling = False
-    if scene.cycles.use_denoising or scene.cycles.use_adaptive_sampling:
-        raise RuntimeError("RAW benchmark settings were not accepted by Blender")
+    if scene.cycles.use_denoising != args.denoise or scene.cycles.use_adaptive_sampling:
+        raise RuntimeError("Requested sampling/denoise settings were not accepted by Blender")
     print(
         "[Drop & View Cycles] VERIFIED: adaptive sampling OFF, "
-        f"denoise OFF, fixed samples {scene.cycles.samples}"
+        f"denoise {'OIDN ON' if args.denoise else 'OFF (RAW)'}, "
+        f"fixed samples {scene.cycles.samples}"
     )
     scene.render.use_file_extension = True
     try:
@@ -716,12 +828,7 @@ def main() -> None:
         scene = bpy.context.scene
         enable_cycles_metal(scene)
         print(f"[Drop & View Cycles] Importing: {model_path}")
-        bpy.ops.import_scene.gltf(
-            filepath=str(model_path),
-            import_pack_images=True,
-            import_shading="NORMALS",
-            import_scene_extras=True,
-        )
+        import_model(model_path)
         imported_roots = [obj for obj in scene.objects if obj.parent is None]
         metadata = drop_view_metadata(scene)
         view_session = manifest.get("viewSession") if manifest else None
@@ -749,7 +856,8 @@ def main() -> None:
 
         print(
             f"[Drop & View Cycles] Rendering {args.width}x{args.height}, "
-            f"{args.samples} RAW fixed samples, denoise OFF -> {output}"
+            f"{args.samples} fixed samples, "
+            f"denoise {'OIDN ON' if args.denoise else 'OFF (RAW)'} -> {output}"
         )
         print(
             "[Drop & View Cycles] The PNG appears only after rendering finishes; "

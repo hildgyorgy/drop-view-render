@@ -167,6 +167,7 @@ private struct JobDetail: View {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 Divider()
+                resolution
                 quality
                 output
                 if !job.log.isEmpty {
@@ -209,38 +210,44 @@ private struct JobDetail: View {
     private var quality: some View {
         GroupBox("Render quality") {
             VStack(alignment: .leading, spacing: 14) {
-                Toggle("Override source/default render settings", isOn: $job.overridesSourceSettings)
-                    .disabled(job.state == .rendering)
-
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
-                    GridRow {
-                        Text("Resolution")
-                        HStack {
-                            IntegerField(value: $job.width, range: 1...16_384)
-                            Text("×").foregroundStyle(.secondary)
-                            IntegerField(value: $job.height, range: 1...16_384)
-                        }
-                    }
-                    GridRow {
-                        Text("Samples")
-                        IntegerField(value: $job.samples, range: 1...100_000)
-                    }
-                    GridRow {
-                        Text("Bounces")
-                        IntegerField(value: $job.bounces, range: 1...64)
-                    }
-                    GridRow {
-                        Text("Transmission bounces")
-                        IntegerField(value: $job.transmissionBounces, range: 1...64)
+                Picker("Profile", selection: $job.qualityProfile) {
+                    ForEach(RenderQualityProfile.allCases) { profile in
+                        Text(profile.label).tag(profile)
                     }
                 }
-                .disabled(!job.overridesSourceSettings || job.state == .rendering)
+                .pickerStyle(.segmented)
+                .disabled(job.state == .rendering)
 
-                Text(job.overridesSourceSettings
-                     ? "These exact values are passed to Blender; they are never reduced silently."
-                     : "The adapter will use the .dvrender values, or its defaults for a plain GLB.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if job.qualityProfile == .recommended {
+                    LabeledContent("Samples", value: String(job.sourceSamples))
+                    LabeledContent("Bounces", value: String(job.sourceBounces))
+                    LabeledContent("Transmission bounces", value: String(job.sourceTransmissionBounces))
+                    LabeledContent("Denoise", value: "On")
+                    Text("Keeps source/default quality values and applies denoising to the final image.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
+                        GridRow {
+                            Text("Samples")
+                            IntegerField(value: $job.samples, range: 1...100_000)
+                        }
+                        GridRow {
+                            Text("Bounces")
+                            IntegerField(value: $job.bounces, range: 1...64)
+                        }
+                        GridRow {
+                            Text("Transmission bounces")
+                            IntegerField(value: $job.transmissionBounces, range: 1...64)
+                        }
+                    }
+                    .disabled(job.state == .rendering)
+                    Toggle("Denoise", isOn: $job.usesDenoising)
+                        .disabled(job.state == .rendering)
+                    Text("Turn denoising off for an unfiltered RAW comparison. Sample and bounce counts are never reduced automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Divider()
 
@@ -252,6 +259,26 @@ private struct JobDetail: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .padding(.top, 6)
+        }
+    }
+
+    private var resolution: some View {
+        GroupBox("Resolution") {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Override source/default resolution", isOn: $job.overridesResolution)
+                HStack {
+                    IntegerField(value: $job.width, range: 1...16_384)
+                    Text("×").foregroundStyle(.secondary)
+                    IntegerField(value: $job.height, range: 1...16_384)
+                    Text("px").foregroundStyle(.secondary)
+                }
+                .disabled(!job.overridesResolution)
+                Text("Resolution is independent of the quality profile.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .disabled(job.state == .rendering)
             .padding(.top, 6)
         }
     }
