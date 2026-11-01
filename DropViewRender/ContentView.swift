@@ -37,6 +37,9 @@ struct ContentView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             model.acceptDrop(providers)
         }
+        .onOpenURL { url in
+            model.add([url])
+        }
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 14)
@@ -271,6 +274,9 @@ private struct JobDetail: View {
                     if job.state == .finished {
                         Button("Show in Finder") {
                             model.reveal(job.outputURL)
+                        }
+                        Button("Render Again") {
+                            model.renderAgain(job.id)
                         }
                     }
                 }

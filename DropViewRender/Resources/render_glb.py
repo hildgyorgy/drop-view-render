@@ -23,6 +23,8 @@ from mathutils import Matrix, Vector
 
 MAX_PACKAGE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+MAX_HDR_BYTES = 256 * 1024 * 1024
+MAX_HDR_PIXELS = 32_000_000
 MAX_RESOURCES = 2
 
 
@@ -40,6 +42,7 @@ class RenderProgress:
         self.sample = None
         self.sample_total = None
         self.remaining = None
+        self.last_reported_sample = None
         self.stop_event = threading.Event()
         self.thread = None
 
@@ -58,6 +61,13 @@ class RenderProgress:
         if sample_match:
             self.sample = int(sample_match.group(1))
             self.sample_total = max(int(sample_match.group(2)), 1)
+            if not self.enabled and self.sample != self.last_reported_sample:
+                self.last_reported_sample = self.sample
+                print(
+                    f"[Drop & View Cycles] DVR_PROGRESS "
+                    f"{self.sample}/{self.sample_total}",
+                    flush=True,
+                )
         remaining_match = self.REMAINING_PATTERN.search(stats)
         self.remaining = remaining_match.group(1).strip() if remaining_match else None
         stages = [
@@ -96,21 +106,20 @@ class RenderProgress:
             tick += 1
 
     def start(self) -> None:
-        if not self.enabled:
-            return
         self.started_at = time.monotonic()
         bpy.app.handlers.render_stats.append(self.on_stats)
-        self.thread = threading.Thread(target=self.animate, daemon=True)
-        self.thread.start()
+        if self.enabled:
+            self.thread = threading.Thread(target=self.animate, daemon=True)
+            self.thread.start()
 
     def stop(self) -> None:
+        if self.on_stats in bpy.app.handlers.render_stats:
+            bpy.app.handlers.render_stats.remove(self.on_stats)
         if not self.enabled:
             return
         self.stop_event.set()
         if self.thread:
             self.thread.join(timeout=1.0)
-        if self.on_stats in bpy.app.handlers.render_stats:
-            bpy.app.handlers.render_stats.remove(self.on_stats)
         elapsed = self.duration(time.monotonic() - self.started_at)
         sys.stdout.write(
             f"\r\033[2K[Drop & View Cycles] "
@@ -142,6 +151,66 @@ def resource_index(manifest: dict, field: str) -> int | None:
     if not isinstance(index, int) or isinstance(index, bool):
         raise ValueError(f"Invalid {field} resource")
     return index
+
+
+def safe_filename(value, suffix: str) -> bool:
+    return (
+        isinstance(value, str)
+        and 0 < len(value.encode("utf-8")) <= 255
+        and value not in {".", ".."}
+        and not any(character in value for character in ("/", "\\"))
+        and not any(ord(character) < 32 for character in value)
+        and value.lower().endswith(suffix)
+    )
+
+
+def validate_render_settings(manifest: dict) -> None:
+    render_size = manifest.get("renderSize")
+    if render_size is not None:
+        if not isinstance(render_size, dict) or not all(
+            isinstance(render_size.get(field), int)
+            and not isinstance(render_size[field], bool)
+            and 1 <= render_size[field] <= 16_384
+            for field in ("width", "height")
+        ):
+            raise ValueError("Invalid packaged render size")
+    render_job = manifest.get("renderJob")
+    if render_job is not None:
+        limits = {"samples": 100_000, "bounces": 64, "transmissiveBounces": 64}
+        if not isinstance(render_job, dict) or not all(
+            isinstance(render_job.get(field), int)
+            and not isinstance(render_job[field], bool)
+            and 1 <= render_job[field] <= maximum
+            for field, maximum in limits.items()
+        ):
+            raise ValueError("Invalid packaged render job")
+
+
+def validate_hdri_resource(source, offset: int, length: int) -> None:
+    if length < 16 or length > MAX_HDR_BYTES:
+        raise ValueError("Invalid render package HDRI size")
+    source.seek(offset)
+    header = source.read(min(length, 32_768))
+    if not header.startswith((b"#?RADIANCE", b"#?RGBE")):
+        raise ValueError("Invalid render package HDRI")
+    resolution = re.search(rb"[+-]Y\s+(\d+)\s+[+-]X\s+(\d+)", header)
+    if not resolution:
+        raise ValueError("Invalid render package HDRI dimensions")
+    height, width = (int(value) for value in resolution.groups())
+    if width < 1 or height < 1 or width * height > MAX_HDR_PIXELS:
+        raise ValueError("Render package HDRI dimensions exceed limits")
+
+
+def validate_glb(path: Path) -> None:
+    size = path.stat().st_size
+    if size < 12:
+        raise ValueError("GLB file is too short")
+    with path.open("rb") as source:
+        header = source.read(12)
+    if header[:4] != b"glTF" or struct.unpack_from("<I", header, 4)[0] != 2:
+        raise ValueError("Input is not a glTF 2.0 binary file")
+    if struct.unpack_from("<I", header, 8)[0] != size:
+        raise ValueError("GLB length does not match its header")
 
 
 def extract_resource(source, offset: int, length: int, target: Path) -> None:
@@ -181,8 +250,15 @@ def decode_render_package(package: Path, temporary: Path) -> tuple[Path, Path | 
         if len(lengths) > MAX_RESOURCES or any(
             not isinstance(length, int) or isinstance(length, bool) or length < 0
             for length in lengths
-        ):
+        ) or lengths[0] < 12:
             raise ValueError("Invalid render package resources")
+        if not safe_filename(manifest.get("fileName"), ".glb"):
+            raise ValueError("Invalid render package filename")
+        if not isinstance(manifest.get("viewSession"), dict) or not isinstance(
+            manifest.get("producer"), dict
+        ):
+            raise ValueError("Incomplete render package manifest")
+        validate_render_settings(manifest)
         resource_start = 12 + manifest_length
         offsets = []
         offset = resource_start
@@ -193,7 +269,12 @@ def decode_render_package(package: Path, temporary: Path) -> tuple[Path, Path | 
             raise ValueError("Render package length does not match its manifest")
 
         source.seek(offsets[0])
-        if source.read(4) != b"glTF":
+        glb_header = source.read(12)
+        if (
+            len(glb_header) != 12
+            or glb_header[:4] != b"glTF"
+            or struct.unpack_from("<I", glb_header, 8)[0] != lengths[0]
+        ):
             raise ValueError("Render package model is not a GLB")
         model_path = temporary / "model.glb"
         extract_resource(source, offsets[0], lengths[0], model_path)
@@ -201,12 +282,20 @@ def decode_render_package(package: Path, temporary: Path) -> tuple[Path, Path | 
         hdri_path = None
         environment_index = resource_index(manifest, "environment")
         if environment_index is not None:
-            if environment_index < 1 or environment_index >= len(lengths):
+            if environment_index != 1 or len(lengths) != 2:
                 raise ValueError("Invalid render package HDRI resource")
+            environment = manifest["environment"]
+            if not safe_filename(environment.get("name"), ".hdr"):
+                raise ValueError("Invalid render package HDRI filename")
+            validate_hdri_resource(
+                source, offsets[environment_index], lengths[environment_index]
+            )
             hdri_path = temporary / "environment.hdr"
             extract_resource(
                 source, offsets[environment_index], lengths[environment_index], hdri_path
             )
+        elif len(lengths) != 1:
+            raise ValueError("Render package contains an unreferenced resource")
 
     return model_path, hdri_path, manifest
 
@@ -318,7 +407,7 @@ def create_framed_camera(scene: bpy.types.Scene, minimum: Vector, maximum: Vecto
 def choose_camera(
     scene: bpy.types.Scene, minimum: Vector, maximum: Vector, metadata: dict
 ) -> bpy.types.Object:
-    initial_view = metadata.get("initialView", {})
+    initial_view = metadata.get("initialView") or {}
     position = initial_view.get("position")
     cameras = [obj for obj in scene.objects if obj.type == "CAMERA"]
     if isinstance(position, list) and len(position) == 3 and cameras:
@@ -393,13 +482,22 @@ def apply_group_visibility(imported_roots: list[bpy.types.Object], view_session:
         if not isinstance(index, int) or index < 0 or index >= len(groups):
             continue
         group = groups[index]
-        group.hide_render = not bool(record.get("visible", True))
-        group.hide_viewport = group.hide_render
         if label and group.name != label:
+            matches = [candidate for candidate in groups if candidate.name == label]
+            if len(matches) != 1:
+                print(
+                    f"[Drop & View Cycles] Skipping unmatched group {index}: "
+                    f"package={label!r}, Blender={group.name!r}"
+                )
+                continue
+            group = matches[0]
             print(
-                f"[Drop & View Cycles] Group {index} label differs: "
-                f"package={label!r}, Blender={group.name!r}"
+                f"[Drop & View Cycles] Matched reordered group {index} by label {label!r}"
             )
+        hidden = not bool(record.get("visible", True))
+        for obj in (group, *group.children_recursive):
+            obj.hide_render = hidden
+            obj.hide_viewport = hidden
 
 
 def create_sun(
@@ -425,7 +523,7 @@ def create_sun(
             math.sin(azimuth) * horizontal,
         ]).normalized()
     else:
-        saved_direction = metadata.get("sun", {}).get("directionToSun")
+        saved_direction = (metadata.get("sun") or {}).get("directionToSun")
         direction_to_sun = (
             gltf_to_blender(saved_direction).normalized()
             if isinstance(saved_direction, list) and len(saved_direction) == 3
@@ -450,7 +548,7 @@ def hdri_sun_direction(image: bpy.types.Image) -> Vector | None:
             colors[:, 0] * 0.2126 + colors[:, 1] * 0.7152 + colors[:, 2] * 0.0722
         )
         brightest = int(numpy.argmax(luminance))
-    except (ImportError, ValueError):
+    except (ImportError, RuntimeError, TypeError, ValueError):
         return None
     x = brightest % width
     # Blender exposes image pixels bottom-up; the web HDR loader uses top-down.
@@ -580,23 +678,30 @@ def main() -> None:
             model_path, packaged_hdri, manifest = decode_render_package(input_path, temporary)
         else:
             model_path = input_path
+            validate_glb(model_path)
 
         render_size = manifest.get("renderSize") if manifest else None
         render_job = manifest.get("renderJob") if manifest else None
-        args.width = args.width or (render_size or {}).get("width") or 1280
-        args.height = args.height or (render_size or {}).get("height") or 720
-        args.samples = args.samples or (render_job or {}).get("samples") or 64
-        args.bounces = args.bounces or (render_job or {}).get("bounces") or 6
-        args.transmission_bounces = (
-            args.transmission_bounces
-            or (render_job or {}).get("transmissiveBounces")
-            or 10
-        )
-        if args.width < 8 or args.height < 8 or args.samples < 1:
-            raise ValueError("Width, height and samples must be positive")
+        if args.width is None:
+            args.width = (render_size or {}).get("width", 1280)
+        if args.height is None:
+            args.height = (render_size or {}).get("height", 720)
+        if args.samples is None:
+            args.samples = (render_job or {}).get("samples", 64)
+        if args.bounces is None:
+            args.bounces = (render_job or {}).get("bounces", 6)
+        if args.transmission_bounces is None:
+            args.transmission_bounces = (render_job or {}).get(
+                "transmissiveBounces", 10
+            )
+        if not 1 <= args.width <= 16_384 or not 1 <= args.height <= 16_384:
+            raise ValueError("Width and height must be between 1 and 16384")
+        if not 1 <= args.samples <= 100_000:
+            raise ValueError("Samples must be between 1 and 100000")
+        if not 1 <= args.bounces <= 64 or not 1 <= args.transmission_bounces <= 64:
+            raise ValueError("Bounce counts must be between 1 and 64")
 
-        script_root = Path(__file__).resolve().parents[2]
-        default_hdri = script_root / "assets" / "hdri" / "backdrop.hdr"
+        default_hdri = Path(__file__).resolve().with_name("backdrop.hdr")
         hdri = (
             args.hdri.expanduser().resolve()
             if args.hdri
@@ -653,10 +758,12 @@ def main() -> None:
         progress = RenderProgress()
         progress.start()
         try:
-            bpy.ops.render.render(write_still=True)
+            result = bpy.ops.render.render(write_still=True)
         finally:
             progress.stop()
-        print(f"[Drop & View Cycles] READY: {output}")
+        if "FINISHED" not in result or not output.is_file() or output.stat().st_size < 1:
+            raise RuntimeError("Blender did not produce a completed output image")
+        print(f"[Drop & View Cycles] READY: {output}", flush=True)
 
 
 if __name__ == "__main__":

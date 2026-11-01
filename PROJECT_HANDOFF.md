@@ -29,6 +29,10 @@ Verified on an Apple M1 Max with Blender 5.2.3:
   four minutes on the M1 Max, depending on settings and scene state.
 - The native app streams preparation activity, Blender output, final path and
   READY into its job UI.
+- Final output is staged beside its destination and moved into place only after
+  Blender reports success and a non-empty image is verified. Cancellation
+  pauses the queue and escalates from interrupt to termination if necessary.
+- Plain GLB files use the bundled, CC0 Drop & View default environment.
 
 The current adapter deliberately forces fixed samples with adaptive sampling
 OFF and denoising OFF for a temporary image-quality benchmark. It verifies
@@ -81,7 +85,8 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
 - [x] PNG destination and current adapter quality arguments;
 - [x] camera-visible HDRI background override that preserves environment
       lighting, reflections and sun alignment;
-- [ ] reliable machine-readable Cycles progress and remaining-time reporting;
+- [x] machine-readable Cycles sample progress in Blender's piped output;
+- [ ] reliable remaining-time reporting;
 - [ ] user-facing adaptive sampling, denoise and output-format controls backed
       by matching adapter arguments;
 - [ ] automated package-reader tests and a native-app smoke-render workflow;

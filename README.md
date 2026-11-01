@@ -17,8 +17,10 @@ The repository is a native SwiftUI macOS application. It:
   top-level group visibility from `.dvrender`;
 - lets the user override render quality, output destination and camera-visible
   HDRI background without disabling HDRI lighting or reflections;
-- writes `<input-name>-cycles.png` next to the input;
-- streams Blender output into the job UI and supports cancel and Show in Finder.
+- writes `<input-name>-cycles.png` next to the input through a temporary staging
+  file, so a failed or cancelled render cannot leave a partial final image;
+- streams Blender output into the job UI and supports cancel, Render Again and
+  Show in Finder.
 
 The bundled adapter currently runs a deliberate RAW benchmark configuration:
 adaptive sampling and denoising are disabled. This is temporary and must become
@@ -57,6 +59,10 @@ Optional arguments after `--`:
 `--hide-hdri-background` keeps HDRI illumination, sun alignment and reflections
 active while replacing the camera-visible environment image with the same
 neutral background concept used by the Drop & View path tracer.
+
+Plain GLB renders use the bundled Drop & View default environment unless an
+HDRI is supplied explicitly. The bundled `backdrop.hdr` is the **Pure Skies**
+environment from [Poly Haven](https://polyhaven.com), distributed under CC0.
 
 ## Product direction
 

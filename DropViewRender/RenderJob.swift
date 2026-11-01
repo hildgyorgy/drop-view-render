@@ -17,12 +17,13 @@ struct RenderJob: Identifiable {
     var log: String
     var errorMessage: String?
     var isInputValid: Bool
+    var overwriteApproved: Bool
 
     init(inputURL: URL, manifest: DVRenderManifest?) {
         id = UUID()
         self.inputURL = inputURL
-        outputURL = inputURL.deletingPathExtension()
-            .appendingPathExtension("cycles.png")
+        outputURL = inputURL.deletingLastPathComponent()
+            .appendingPathComponent("\(inputURL.deletingPathExtension().lastPathComponent)-cycles.png")
         overridesSourceSettings = false
         width = manifest?.renderSize?.width ?? 1_280
         height = manifest?.renderSize?.height ?? 720
@@ -35,6 +36,7 @@ struct RenderJob: Identifiable {
         log = ""
         errorMessage = nil
         isInputValid = true
+        overwriteApproved = false
 
         if let manifest {
             let size = manifest.renderSize.map { "\($0.width)×\($0.height)" } ?? "source size"

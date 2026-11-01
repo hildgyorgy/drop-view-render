@@ -24,8 +24,9 @@ enum BlenderLocator {
             "/Applications/Blender 5.2.app/Contents/MacOS/Blender"
         ].compactMap { $0 }
 
-        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
-            return installation(at: URL(fileURLWithPath: path))
+        for path in candidates {
+            let url = URL(fileURLWithPath: path)
+            if isValidExecutable(url) { return installation(at: url) }
         }
         return .missing
     }
@@ -43,8 +44,13 @@ enum BlenderLocator {
         let executable = chosen.pathExtension == "app"
             ? chosen.appendingPathComponent("Contents/MacOS/Blender")
             : chosen
-        guard FileManager.default.isExecutableFile(atPath: executable.path) else {
-            return .missing
+        guard isValidExecutable(executable) else {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "That is not a Blender executable"
+            alert.informativeText = "Choose Blender.app or its Contents/MacOS/Blender executable."
+            alert.runModal()
+            return nil
         }
         UserDefaults.standard.set(executable.path, forKey: storedPathKey)
         return installation(at: executable)
@@ -56,5 +62,12 @@ enum BlenderLocator {
             title: "Blender ready",
             detail: executable.path
         )
+    }
+
+    private static func isValidExecutable(_ url: URL) -> Bool {
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+        return values?.isRegularFile == true
+            && FileManager.default.isExecutableFile(atPath: url.path)
+            && url.lastPathComponent == "Blender"
     }
 }
