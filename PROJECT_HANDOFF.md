@@ -88,8 +88,9 @@ Only after this shell works should the Terminal droplet be retired or renamed.
 
 - [x] Copy verified prototype to the new project.
 - [x] Add independent README, handoff, repository guidance and format spec.
-- [ ] Initialize local Git repository and make the initial commit.
-- [ ] Create and push the GitHub repository.
+- [x] Initialize local Git repository and make the initial commit.
+- [x] Create and push the public GitHub repository:
+      `https://github.com/hildgyorgy/drop-view-render`.
 - [ ] Add a compatibility link in `drop-3d-view/tools/cycles/README.md`.
 - [ ] Remove the old prototype copy from Drop & View after the new remote and
       a smoke render are verified.
