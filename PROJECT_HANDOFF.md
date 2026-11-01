@@ -106,6 +106,8 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
 
 - [x] Xcode project and stable bundle identifier;
 - [x] drag-and-drop and Open panel for GLB/`.dvrender`;
+- [x] optional v1 manifest JPEG thumbnail (max 640 pixels/256 KiB), captured by
+      the web exporter and displayed in the job list; legacy files use an icon;
 - [x] Blender executable discovery and initial diagnostics;
 - [x] subprocess launch with streamed stdout/stderr;
 - [x] job state UI, Cancel and Show in Finder;

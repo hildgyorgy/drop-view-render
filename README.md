@@ -11,6 +11,8 @@ Drop & View Render receives a materialized `.glb` model or a portable
 The repository is a native SwiftUI macOS application. It:
 
 - accepts one or more `.glb` or `.dvrender` files by drag and drop or file picker;
+- displays the embedded scene thumbnail beside each `.dvrender` job; older
+  packages and plain GLB use a placeholder without generating a preview render;
 - launches Blender without opening Blender's interface;
 - uses Cycles and the Apple Metal GPU when available;
 - restores the packaged camera, render size, sample/bounce targets, HDRI and

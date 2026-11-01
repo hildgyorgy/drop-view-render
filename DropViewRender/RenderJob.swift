@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct RenderJob: Identifiable {
     static let recommendedNoiseThreshold = 0.03
@@ -6,6 +7,7 @@ struct RenderJob: Identifiable {
     let inputURL: URL
     var outputURL: URL
     var packageSummary: String?
+    let thumbnail: NSImage?
     var overridesResolution: Bool
     var qualityProfile: RenderQualityProfile = .recommended
     var usesDenoising = true
@@ -63,6 +65,7 @@ struct RenderJob: Identifiable {
     init(inputURL: URL, manifest: DVRenderManifest?) {
         id = UUID()
         self.inputURL = inputURL
+        thumbnail = manifest?.thumbnail
         outputURL = inputURL.deletingLastPathComponent()
             .appendingPathComponent("\(inputURL.deletingPathExtension().lastPathComponent)-cycles.png")
         overridesResolution = false

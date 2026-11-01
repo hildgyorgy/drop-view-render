@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import ImageIO
 
 struct DVRenderManifest: Decodable {
     struct RenderSize: Decodable {
@@ -23,6 +25,11 @@ struct DVRenderManifest: Decodable {
     let renderJob: RenderJob?
     let environment: Environment?
     let lengths: [UInt64]
+    var thumbnail: NSImage? = nil
+
+    private enum CodingKeys: String, CodingKey {
+        case version, fileName, renderSize, renderJob, environment, lengths
+    }
 }
 
 enum RenderInputValidator {
@@ -86,7 +93,7 @@ enum RenderInputValidator {
             throw InputValidationError.unsupportedManifest
         }
 
-        let manifest = try JSONDecoder().decode(DVRenderManifest.self, from: data)
+        var manifest = try JSONDecoder().decode(DVRenderManifest.self, from: data)
         try validate(manifest)
 
         var expectedSize = UInt64(12) + UInt64(manifestLength)
@@ -116,7 +123,28 @@ enum RenderInputValidator {
             let hdriHeader = try handle.read(upToCount: headerLength) ?? Data()
             try validateHDRHeader(hdriHeader)
         }
+        manifest.thumbnail = readThumbnail(raw["thumbnail"])
         return manifest
+    }
+
+    private static func readThumbnail(_ value: Any?) -> NSImage? {
+        // Optional preview metadata must never stop an otherwise valid render.
+        guard let record = value as? [String: Any],
+              record["mimeType"] as? String == "image/jpeg",
+              let encoded = record["data"] as? String, encoded.utf8.count <= 349_528,
+              let data = Data(base64Encoded: encoded), data.count <= 256 * 1_024,
+              data.starts(with: [0xff, 0xd8]),
+              let source = CGImageSourceCreateWithData(data as CFData,
+                  [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetType(source) as String? == "public.jpeg",
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              (1...640).contains(width), (1...640).contains(height),
+              record["width"] as? Int == width, record["height"] as? Int == height else {
+            return nil
+        }
+        return NSImage(data: data)
     }
 
     private static func validate(_ manifest: DVRenderManifest) throws {

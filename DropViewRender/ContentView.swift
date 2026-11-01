@@ -135,6 +135,21 @@ private struct JobRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            Group {
+                if let thumbnail = job.thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    Image(systemName: "cube.transparent")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 64, height: 48)
+            .background(Color.secondary.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .accessibilityLabel(job.thumbnail == nil ? "No preview" : "Saved scene preview")
             Image(systemName: job.state.symbol)
                 .foregroundStyle(job.state.color)
                 .frame(width: 20)

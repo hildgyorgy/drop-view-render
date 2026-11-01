@@ -52,6 +52,18 @@ Representative shape:
 packages. Current newly exported packages include them. Current v1 packages
 must include valid `viewSession` and `producer` objects.
 
+### Optional thumbnail
+
+The manifest may include `thumbnail: { "mimeType": "image/jpeg", "width": 640,
+"height": 401, "data": "<base64 JPEG bytes>" }`. This is a small normal-viewport
+scene preview, not an accumulated render. The longer side is at most 640 pixels,
+aspect ratio is preserved and the JPEG is at most 256 KiB before base64 encoding.
+It counts toward the existing 4 MiB manifest limit, not the resource table.
+Binary resources remain exactly the GLB and optional HDRI. Older readers ignore
+this optional field; older packages without it remain valid. Invalid thumbnails
+are ignored by the native viewer without preventing the render. No SVG, external
+URL or arbitrary content is loaded as a preview.
+
 ## View session
 
 `viewSession.version` is 1 and contains:
