@@ -1,0 +1,11 @@
+.DS_Store
+*.png
+*.exr
+*.blend
+*.blend1
+__pycache__/
+*.pyc
+.build/
+DerivedData/
+xcuserdata/
+
