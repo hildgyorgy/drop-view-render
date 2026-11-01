@@ -91,7 +91,8 @@ Only after this shell works should the Terminal droplet be retired or renamed.
 - [x] Initialize local Git repository and make the initial commit.
 - [x] Create and push the public GitHub repository:
       `https://github.com/hildgyorgy/drop-view-render`.
-- [ ] Add a compatibility link in `drop-3d-view/tools/cycles/README.md`.
-- [ ] Remove the old prototype copy from Drop & View after the new remote and
-      a smoke render are verified.
+- [x] Add a compatibility link in `drop-3d-view/tools/cycles/README.md`.
+- [x] Remove the old prototype copy from Drop & View after the new remote and
+      a smoke render were verified. The removed `.app` bundle was moved to the
+      macOS Trash as a recoverable precaution.
 
