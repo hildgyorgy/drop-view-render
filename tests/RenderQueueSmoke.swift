@@ -48,22 +48,34 @@ struct RenderQueueSmoke {
         precondition(model.jobs[0].elapsedRenderTime == duration)
         precondition(model.canStart, "Selected finished job must be renderable from toolbar")
 
-        // Simulate replacement already approved via the save panel. Only this
-        // test-owned temporary output is replaced; production prompts otherwise.
-        model.jobs[0].overwriteApproved = true
+        let firstOutput = model.jobs[0].outputURL
+        let firstBytes = try Data(contentsOf: firstOutput)
+        // Exercise disk and queued-job collisions without replacement dialogs.
+        let occupied = directory.appendingPathComponent("result-001.png")
+        try Data("existing-image".utf8).write(to: occupied)
+        var reservedJob = RenderJob(inputURL: model.jobs[0].inputURL, manifest: nil)
+        reservedJob.outputURL = directory.appendingPathComponent("result-002.png")
+        reservedJob.state = .finished
+        model.jobs.append(reservedJob)
         model.jobs[0].qualityProfile = .recommended
         model.startQueue()
         precondition(model.isRendering && model.jobs[0].renderDuration == nil)
+        precondition(model.jobs[0].outputURL.lastPathComponent == "result-003.png")
         try await waitForCompletion(model)
         precondition(model.jobs[0].state == .finished, model.jobs[0].log)
         precondition(model.jobs[0].log.contains("adaptive sampling ON, denoise OIDN ON"))
         precondition(model.jobs[0].log.contains("Noise threshold 0.03"))
         precondition(model.jobs[0].lastRunSettings?.noiseThreshold == 0.03)
         precondition((model.jobs[0].renderDuration ?? 0) > 0)
-        print("PASS: toolbar first render/rerender, atomic replacement, live/frozen/reset timing")
+        let preservedFirst = try Data(contentsOf: firstOutput)
+        let preservedOccupied = try Data(contentsOf: occupied)
+        precondition(preservedFirst == firstBytes)
+        precondition(preservedOccupied == Data("existing-image".utf8))
+        precondition(model.jobs[0].lastRunSettings?.outputURL == model.jobs[0].outputURL)
+        print("PASS: indexed rerender skips disk/queue collisions, preserves images and settings/timing")
 
-        model.jobs[0].overwriteApproved = true
         model.startQueue()
+        precondition(model.jobs[0].outputURL.lastPathComponent == "result-004.png")
         model.cancelRender()
         try await waitForCompletion(model)
         precondition(model.jobs[0].state == .cancelled, model.jobs[0].log)

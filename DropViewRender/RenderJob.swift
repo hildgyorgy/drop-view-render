@@ -6,6 +6,8 @@ struct RenderJob: Identifiable {
     let id: UUID
     let inputURL: URL
     var outputURL: URL
+    // Keep the user-chosen stem stable across automatic rerender numbering.
+    var outputSeriesBaseURL: URL?
     var packageSummary: String?
     let thumbnail: NSImage?
     var overridesResolution: Bool

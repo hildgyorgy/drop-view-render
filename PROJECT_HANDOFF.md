@@ -112,7 +112,8 @@ Complete and harden the native SwiftUI application and bundled Python adapter:
 - [x] subprocess launch with streamed stdout/stderr;
 - [x] job state UI, Cancel and Show in Finder;
 - [x] unified toolbar Render action for selected rerenders and pending jobs,
-      with existing-output replacement confirmation;
+      with automatic indexed output filenames (`-001`, `-002`, …) on rerenders
+      or existing-file collisions; explicit Save-panel replacement remains possible;
 - [x] monotonic elapsed/total job time in sidebar, details and final log,
       including preparation, denoise and output finalization;
 - [x] PNG destination and current adapter quality arguments;

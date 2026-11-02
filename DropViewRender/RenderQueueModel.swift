@@ -163,6 +163,7 @@ final class RenderQueueModel: ObservableObject {
             ? selected
             : selected.appendingPathExtension("png")
         jobs[index].outputURL = output
+        jobs[index].outputSeriesBaseURL = output
         jobs[index].overwriteApproved = FileManager.default.fileExists(atPath: output.path)
         jobs[index].errorMessage = nil
     }
@@ -174,22 +175,10 @@ final class RenderQueueModel: ObservableObject {
     func startQueue() {
         guard canStart, process == nil else { return }
         let candidates = jobsToStart
-        var approved = Set<UUID>()
-        for job in candidates where !job.overwriteApproved
-            && FileManager.default.fileExists(atPath: job.outputURL.path) {
-            let alert = NSAlert()
-            alert.messageText = "Replace existing render?"
-            alert.informativeText = "\(job.outputURL.path)\n\nThe existing image will be replaced only after the new render completes successfully. Use Choose… to save a separate comparison image."
-            alert.addButton(withTitle: "Replace and Render")
-            alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-            approved.insert(job.id)
-        }
         let candidateIDs = Set(candidates.map(\.id))
         for index in jobs.indices where candidateIDs.contains(jobs[index].id) {
             jobs[index].state = .queued
             jobs[index].errorMessage = nil
-            if approved.contains(jobs[index].id) { jobs[index].overwriteApproved = true }
         }
         queueShouldContinue = true
         startNextJob(preferredID: selectedJobID)
@@ -225,6 +214,7 @@ final class RenderQueueModel: ObservableObject {
             return
         }
 
+        selectOutputForRun(at: index)
         let job = jobs[index]
         let prepared: (staged: URL, temporaryRoot: URL)
         do {
@@ -523,6 +513,31 @@ final class RenderQueueModel: ObservableObject {
         let kind = job.inputURL.pathExtension.lowercased()
         return job.inputURL.deletingLastPathComponent()
             .appendingPathComponent("\(stem)-\(kind)-cycles.png")
+    }
+
+    private func selectOutputForRun(at index: Int) {
+        let job = jobs[index]
+        let base = job.outputSeriesBaseURL ?? job.outputURL
+        jobs[index].outputSeriesBaseURL = base
+        // Explicit replacement approved in NSSavePanel remains possible.
+        guard !job.overwriteApproved else { return }
+        let reserved = Set(jobs.filter { $0.id != job.id }.map { $0.outputURL.standardizedFileURL })
+        let isRerender = job.lastRunSettings?.outputURL == job.outputURL
+        if !isRerender && !reserved.contains(job.outputURL.standardizedFileURL)
+            && !FileManager.default.fileExists(atPath: job.outputURL.path) { return }
+        var number = 1
+        while true {
+            let stem = base.deletingPathExtension().lastPathComponent
+            let name = "\(stem)-\(String(format: "%03d", number)).\(base.pathExtension)"
+            let candidate = base.deletingLastPathComponent().appendingPathComponent(name)
+            if candidate != job.lastRunSettings?.outputURL
+                && !reserved.contains(candidate.standardizedFileURL)
+                && !FileManager.default.fileExists(atPath: candidate.path) {
+                jobs[index].outputURL = candidate
+                return
+            }
+            number += 1
+        }
     }
 }
 

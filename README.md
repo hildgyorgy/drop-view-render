@@ -23,7 +23,8 @@ The repository is a native SwiftUI macOS application. It:
   file, so a failed or cancelled render cannot leave a partial final image;
 - streams Blender output into the job UI and supports cancel and Show in Finder;
 - uses the same toolbar Render button for initial renders and rerenders of the
-  selected finished job, confirming replacement of an existing destination;
+  selected finished job; rerenders and existing-file collisions automatically
+  use the next free `-001`, `-002`, … filename, preserving previous images;
 - shows live elapsed time and retains total job time (including Blender startup,
   import, rendering, denoising and output finalization) after completion or cancellation.
 
