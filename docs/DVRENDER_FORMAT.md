@@ -79,6 +79,18 @@ URL or arbitrary content is loaded as a preview.
 
 The Drop & View producer refuses export while SECTION is enabled.
 
+For `axon` and `ortho`, new producers also include optional
+`camera.orthographic: { left, right, top, bottom }`: the actual Three.js frustum
+bounds **before zoom**, in model units. Bounds must be finite with `right > left`
+and `top > bottom`; `camera.zoom` must be positive. Effective vertical span is
+`(top - bottom) / zoom`. The centre is `((left + right)/2, (top + bottom)/2)`.
+The exported render aspect matches the frustum aspect. The consumer uses vertical
+sensor fit; an intentional output aspect override preserves the vertical span
+and expands/crops horizontally. This is a backward-compatible v1 addition.
+Legacy snapshots without these bounds remain readable using an estimated default
+fit, with a log warning; exact custom framing requires re-export. Both file drops
+and browser submissions use this same camera conversion.
+
 ## Limits and validation
 
 - package size: maximum 2 GiB;
@@ -114,6 +126,14 @@ materials with positive `KHR_materials_transmission.transmissionFactor` and
 absent/zero `KHR_materials_volume.thicknessFactor`. Unmarked materials and
 positive-thickness volumes retain their imported shading. Alpha blending or
 a material/object name alone never identifies clear glass.
+The consumer calibrates eligible marked thin glass in Blender memory to
+IOR 1.51, roughness 0.01 and transmission 1.0, overriding imported values/links
+only on those three Principled inputs. This is a Cycles rendering policy, not a
+v1 format change or a rewrite of the materialized GLB. Other material inputs,
+including base color and normal links, remain intact. The web viewer keeps its
+own material settings. This calibration also applies to eligible marked glass
+with a source transmission below 0.98; it is an explicit clear-window preset,
+not a general transparency adjustment for arbitrary materials.
 The marked thin-glass policy also includes colored, transmission-weighted
 transparency for shadow rays, to admit direct HDRI light into interiors.
 Camera and reflection rays retain the imported Thin Wall surface. Shadow

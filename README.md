@@ -47,8 +47,13 @@ Exporter-selected clear glass (`material.extras.archicad.clearGlassOverride`
 equal to `true`) with positive glTF transmission and no positive
 `KHR_materials_volume` thickness uses Blender 5.2's native Principled BSDF
 **Thin Wall** mode. Unmarked materials, positive-thickness glass and alpha-only
-transparency retain their imported behavior. Material colors, textures and
-transmission weights remain imported as supplied. Each conversion is listed
+transparency retain their imported behavior. Eligible marked thin glass gets
+Cycles-only calibration: **IOR 1.51, roughness 0.01, transmission 1.0**. These
+three inputs override imported constants or texture links. Base color, normal
+maps and unrelated material properties remain imported as supplied. The
+shadow-only branch uses the calibrated transmission and preserves color tint.
+The same policy applies to plain GLB, dropped/opened `.dvrender` files and browser
+submissions, without changing source bytes or the web viewer. Each conversion is listed
 in Blender output. The marker is already preserved in `.dvrender` v1's GLB.
 Marked thin glass also gets a shadow-only Transparent BSDF branch, tinted by
 its base color and weighted by its transmission (including linked textures).
@@ -61,6 +66,48 @@ separate Python runtime, Terminal launcher, AppleScript droplet or legacy helper
 app is part of the current application.
 
 Open `DropViewRender.xcodeproj` in Xcode to run the application.
+
+Orthographic/axon snapshots exported by the updated web app preserve the exact
+camera frame and zoom. Older packages without frustum bounds use an estimated
+fit; re-export them for precise framing. Changing only output pixel dimensions
+at the same aspect keeps the frame; changing aspect preserves vertical coverage.
+
+## Render directly from the browser
+
+Run this app, then choose **FILE → EXPORT → CONNECT** in the updated Drop & View
+web app and approve the connection. **RENDER** sends the current scene directly
+to Cycles using Recommended quality, keeping its dimensions, sample maximum and
+bounce limits. The browser shows progress/time, **CANCEL**, and **SHOW IN FOLDER**
+when finished. While rendering, compose another camera and press **RENDER** to
+queue another snapshot. The job selector keeps earlier renders accessible. Other
+queued native jobs are not started by a browser submission.
+
+Images are saved to **Downloads / Drop & View Render**, with automatic numbered
+filenames preserving existing images. The native Browser Bridge menu revokes
+connections. **SAVE PACKAGE** and the manual native workflow remain available.
+See [the bridge contract](docs/BROWSER_BRIDGE.md) for limits, tests and browser
+compatibility. Windows support is not part of this change.
+
+## View in Blender
+
+Select a valid job and use **View in Blender** in its **Output** section, beside
+Show in Finder. The app prepares a self-contained `.blend` without rendering a
+new PNG, then opens it in a new instance of the selected Blender.app. Camera
+view and Cycles Rendered shading are set after loading. An existing Blender
+workspace is not replaced.
+
+Rendered jobs use their last-run settings; submitted jobs waiting in the browser
+queue use their accepted settings; other new jobs use current settings. The
+source file is read again, so external source edits or a changed adapter can
+change the prepared scene. This is not a stored historical Blender snapshot.
+Textures/HDRI are packed before temporary resources are removed. The `.blend`
+is kept under the app's **Caches / BlenderViews** folder; use Blender **Save As**
+to keep a permanent project. Cache scenes are not deleted on app quit.
+
+Preparation is disabled during rendering; toolbar Cancel also cancels scene
+preparation. Browser jobs submitted during preparation wait. The viewport has
+its own sampling policy; F12 renders using the saved final settings. Preview
+mode does not change source files or the `.dvrender` v1 contract.
 
 ## Requirements
 
@@ -79,6 +126,7 @@ Optional arguments after `--`:
 
 ```text
 --output result.png
+--save-blend prepared.blend --prepare-only
 --hdri environment.hdr
 --hide-hdri-background
 --width 1920 --height 1080

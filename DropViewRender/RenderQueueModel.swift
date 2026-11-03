@@ -10,6 +10,11 @@ final class RenderQueueModel: ObservableObject {
     @Published var selectedJobID: UUID?
     @Published var blender: BlenderInstallation = BlenderLocator.discover()
     @Published private(set) var isRendering = false
+    @Published private(set) var preparingBlenderJobID: UUID?
+    // Test injection avoids launching a GUI during model smoke tests.
+    var blenderSceneOpener: ((URL, URL) throws -> Void)?
+    private var blenderViewProcess: Process?
+    private var blenderViewCancelled = false
 
     private struct ActiveRun {
         let jobID: UUID
@@ -26,6 +31,10 @@ final class RenderQueueModel: ObservableObject {
     private var outputPipe: Pipe?
     private var activeRun: ActiveRun?
     private var queueShouldContinue = false
+    private var singleJobID: UUID?
+    private var pendingBrowserJobs: [UUID] = []
+    private var browserQueuePaused = false
+    private var submittedSettings: [UUID: RenderSettingsSnapshot] = [:]
     private var cancellationRequestedForJobID: UUID?
     private var terminationCompletion: (() -> Void)?
     private var terminateWorkItem: DispatchWorkItem?
@@ -38,6 +47,7 @@ final class RenderQueueModel: ObservableObject {
     var canStart: Bool {
         blender.executableURL != nil
             && !isRendering
+            && preparingBlenderJobID == nil
             && !jobsToStart.isEmpty
     }
 
@@ -138,7 +148,9 @@ final class RenderQueueModel: ObservableObject {
     }
 
     func remove(_ id: UUID) {
-        guard id != activeRun?.jobID else { return }
+        guard id != activeRun?.jobID, id != preparingBlenderJobID else { return }
+        pendingBrowserJobs.removeAll { $0 == id }
+        submittedSettings.removeValue(forKey: id)
         jobs.removeAll { $0.id == id }
         if selectedJobID == id { selectedJobID = jobs.first?.id }
     }
@@ -169,11 +181,161 @@ final class RenderQueueModel: ObservableObject {
     }
 
     func reveal(_ url: URL) {
-        NSWorkspace.shared.activateFileViewerSelecting([url])
+        let workspace = NSWorkspace.shared
+        guard let finderURL = workspace.urlForApplication(withBundleIdentifier: "com.apple.finder") else {
+            workspace.activateFileViewerSelecting([url])
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        workspace.openApplication(at: finderURL, configuration: configuration) { application, _ in
+            DispatchQueue.main.async {
+                if let application {
+                    NSApp.yieldActivation(to: application)
+                    application.activate(options: .activateAllWindows)
+                }
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        }
+    }
+
+    func viewInBlender(_ id: UUID) {
+        guard !isRendering, preparingBlenderJobID == nil,
+              let blenderURL = blender.executableURL,
+              let index = jobs.firstIndex(where: { $0.id == id && $0.isInputValid }) else { return }
+        let job = jobs[index]
+        let settings = job.lastRunSettings ?? submittedSettings[id] ?? job.resolvedSettings
+        jobs[index].blenderViewError = nil
+        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.hildgyorgy.DropViewRender/BlenderViews/\(UUID().uuidString)", isDirectory: true)
+        let name = URL(fileURLWithPath: job.displayName ?? job.inputURL.lastPathComponent)
+            .deletingPathExtension().lastPathComponent
+        let sceneURL = root.appendingPathComponent("\(name).blend")
+        do {
+            guard let adapter = Bundle.main.url(forResource: "render_glb", withExtension: "py") else {
+                throw CocoaError(.fileNoSuchFile)
+            }
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+                                                   attributes: [.posixPermissions: 0o700])
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = blenderURL
+            process.arguments = ["--background", "--factory-startup", "--python-exit-code", "1",
+                                 "--python", adapter.path, "--", job.inputURL.path,
+                                 "--output", settings.outputURL.path,
+                                 "--save-blend", sceneURL.path, "--prepare-only"] + settings.adapterArguments
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = pipe
+            process.standardError = pipe
+            var environment = ProcessInfo.processInfo.environment
+            environment["PYTHONUNBUFFERED"] = "1"
+            environment["PYTHONIOENCODING"] = "utf-8"
+            process.environment = environment
+            try process.run()
+            try? pipe.fileHandleForWriting.close()
+            blenderViewProcess = process
+            preparingBlenderJobID = id
+            blenderViewCancelled = false
+            let handle = pipe.fileHandleForReading
+            outputReadQueue.async { [weak self] in
+                var tail = Data()
+                do {
+                    while let chunk = try handle.read(upToCount: 16_384), !chunk.isEmpty {
+                        tail.append(chunk)
+                        if tail.count > 65_536 { tail = Data(tail.suffix(65_536)) }
+                    }
+                } catch { tail.append(Data("\n\(error.localizedDescription)".utf8)) }
+                try? handle.close()
+                process.waitUntilExit()
+                let output = String(decoding: tail, as: UTF8.self)
+                DispatchQueue.main.async {
+                    self?.finishBlenderPreparation(id, status: process.terminationStatus,
+                                                  output: output, sceneURL: sceneURL, blenderURL: blenderURL)
+                }
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: root)
+            jobs[index].blenderViewError = "Could not prepare Blender scene: \(error.localizedDescription)"
+        }
+    }
+
+    private func finishBlenderPreparation(_ id: UUID, status: Int32, output: String,
+                                          sceneURL: URL, blenderURL: URL) {
+        blenderViewProcess = nil
+        preparingBlenderJobID = nil
+        let completion = terminationCompletion
+        if completion != nil { terminationCompletion = nil }
+        if let index = jobs.firstIndex(where: { $0.id == id }) {
+            do {
+                guard !blenderViewCancelled, completion == nil else { throw CocoaError(.userCancelled) }
+                guard status == 0, output.contains("[Drop & View Cycles] SCENE_READY:") else {
+                    throw NSError(domain: "DropViewRender", code: Int(status),
+                                  userInfo: [NSLocalizedDescriptionKey: "Blender scene preparation failed (status \(status)).\n\(output.suffix(3000))"])
+                }
+                let handle = try FileHandle(forReadingFrom: sceneURL)
+                let header = try handle.read(upToCount: 7)
+                try handle.close()
+                guard header == Data("BLENDER".utf8) else { throw CocoaError(.fileReadCorruptFile) }
+                jobs[index].blenderSceneURL = sceneURL
+                try openPreparedScene(sceneURL, blenderURL: blenderURL, jobID: id)
+            } catch {
+                jobs[index].blenderSceneURL = nil
+                try? FileManager.default.removeItem(at: sceneURL.deletingLastPathComponent())
+                jobs[index].blenderViewError = blenderViewCancelled
+                    ? "Blender scene preparation was cancelled." : error.localizedDescription
+            }
+        }
+        if let completion { completion() } else {
+            startNextJob()
+            startPendingBrowserJobIfIdle()
+        }
+    }
+
+    private func openPreparedScene(_ url: URL, blenderURL: URL, jobID: UUID) throws {
+        if let blenderSceneOpener { try blenderSceneOpener(url, blenderURL); return }
+        let appURL = blenderURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        guard appURL.pathExtension == "app" else {
+            throw NSError(domain: "DropViewRender", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Choose Blender.app to open the scene in Blender."])
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.createsNewApplicationInstance = true
+        configuration.allowsRunningApplicationSubstitution = false
+        configuration.addsToRecentItems = false
+        guard let adapter = Bundle.main.url(forResource: "render_glb", withExtension: "py") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        configuration.arguments = [url.path, "--python", adapter.path, "--", url.path, "--view-prepared"]
+        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { [weak self] _, error in
+            if let error {
+                DispatchQueue.main.async {
+                    guard let self, let index = self.jobs.firstIndex(where: { $0.id == jobID }) else { return }
+                    self.jobs[index].blenderViewError = "Could not open Blender: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func cancelBlenderPreparation() {
+        guard let process = blenderViewProcess else { return }
+        blenderViewCancelled = true
+        process.interrupt()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self, weak process] in
+            guard let self, self.blenderViewProcess === process, process?.isRunning == true else { return }
+            process?.terminate()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self, weak process] in
+            guard let self, self.blenderViewProcess === process, let process, process.isRunning else { return }
+            Darwin.kill(process.processIdentifier, SIGKILL)
+        }
     }
 
     func startQueue() {
         guard canStart, process == nil else { return }
+        singleJobID = nil
+        pendingBrowserJobs.removeAll()
+        browserQueuePaused = false
         let candidates = jobsToStart
         let candidateIDs = Set(candidates.map(\.id))
         for index in jobs.indices where candidateIDs.contains(jobs[index].id) {
@@ -184,12 +346,77 @@ final class RenderQueueModel: ObservableObject {
         startNextJob(preferredID: selectedJobID)
     }
 
+    /// Browser submissions run serially without starting unrelated local jobs.
+    func acceptBrowserJob(at url: URL, manifest: DVRenderManifest, outputDirectory: URL) throws -> UUID {
+        guard blender.executableURL != nil else { throw RenderOutputError.blenderUnavailable }
+        var job = RenderJob(inputURL: url, manifest: manifest)
+        let stem = URL(fileURLWithPath: manifest.fileName).deletingPathExtension().lastPathComponent
+        job.displayName = "\(stem).dvrender"
+        job.outputURL = outputDirectory.appendingPathComponent("\(stem)-cycles.png")
+        jobs.append(job)
+        let index = jobs.count - 1
+        selectOutputForRun(at: index)
+        submittedSettings[job.id] = jobs[index].resolvedSettings
+        selectedJobID = job.id
+        pendingBrowserJobs.append(job.id)
+        browserQueuePaused = false
+        startPendingBrowserJobIfIdle()
+        return job.id
+    }
+
+    func browserJobStatus(_ id: UUID) -> [String: Any]? {
+        guard let job = jobs.first(where: { $0.id == id }) else { return nil }
+        var result: [String: Any] = ["id": id.uuidString, "state": String(describing: job.state),
+                                   "elapsed": job.elapsedRenderTime ?? 0,
+                                   "outputName": job.outputURL.lastPathComponent]
+        if let progress = job.progress { result["progress"] = progress }
+        if let position = pendingBrowserJobs.firstIndex(of: id) { result["queuePosition"] = position + 1 }
+        if let error = job.errorMessage { result["error"] = error }
+        if let settings = job.lastRunSettings ?? submittedSettings[id] {
+            result["settings"] = ["width": settings.width, "height": settings.height,
+                                  "samples": settings.samples, "bounces": settings.bounces,
+                                  "transmissionBounces": settings.transmissionBounces,
+                                  "denoise": settings.denoise, "adaptive": settings.adaptive,
+                                  "noiseThreshold": settings.noiseThreshold]
+        }
+        return result
+    }
+
+    func cancelBrowserJob(_ id: UUID) -> Bool {
+        if let position = pendingBrowserJobs.firstIndex(of: id),
+           let index = jobs.firstIndex(where: { $0.id == id && $0.state == .queued }) {
+            pendingBrowserJobs.remove(at: position)
+            submittedSettings.removeValue(forKey: id)
+            jobs[index].state = .cancelled
+            jobs[index].errorMessage = "Rendering was cancelled before it started."
+            return true
+        }
+        guard activeRun?.jobID == id else { return false }
+        requestCancellation()
+        return true
+    }
+
+    func revealBrowserJob(_ id: UUID) -> Bool {
+        guard let job = jobs.first(where: { $0.id == id }), job.state == .finished else { return false }
+        reveal(job.outputURL)
+        return true
+    }
+
     func cancelRender() {
+        browserQueuePaused = true
         queueShouldContinue = false
+        if preparingBlenderJobID != nil { cancelBlenderPreparation(); return }
         requestCancellation()
     }
 
     func stopForApplicationTermination(completion: @escaping () -> Void) {
+        browserQueuePaused = true
+        if preparingBlenderJobID != nil {
+            queueShouldContinue = false
+            terminationCompletion = completion
+            cancelBlenderPreparation()
+            return
+        }
         guard isRendering else {
             completion()
             return
@@ -200,10 +427,15 @@ final class RenderQueueModel: ObservableObject {
     }
 
     private func startNextJob(preferredID: UUID? = nil) {
-        guard queueShouldContinue,
-              let blenderURL = blender.executableURL,
-              let index = jobs.firstIndex(where: { $0.id == preferredID && $0.state == .queued })
-                ?? jobs.firstIndex(where: { $0.state == .queued }) else {
+        guard !isRendering, preparingBlenderJobID == nil, process == nil, queueShouldContinue,
+              let blenderURL = blender.executableURL else { return }
+        let eligible: (RenderJob) -> Bool = { job in
+            guard job.state == .queued else { return false }
+            if let id = self.singleJobID { return job.id == id }
+            return !self.pendingBrowserJobs.contains(job.id)
+        }
+        guard let index = jobs.firstIndex(where: { $0.id == preferredID && eligible($0) })
+                ?? jobs.firstIndex(where: eligible) else {
             return
         }
         jobs[index].renderStartedUptime = nil
@@ -237,7 +469,8 @@ final class RenderQueueModel: ObservableObject {
             "--python", adapterURL.path, "--", job.inputURL.path,
             "--output", prepared.staged.path
         ]
-        let settings = job.resolvedSettings
+        var settings = submittedSettings.removeValue(forKey: job.id) ?? job.resolvedSettings
+        settings.outputURL = job.outputURL
         arguments += settings.adapterArguments
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
@@ -398,6 +631,7 @@ final class RenderQueueModel: ObservableObject {
         } else if shouldContinue {
             startNextJob()
         }
+        if completion == nil { startPendingBrowserJobIfIdle() }
     }
 
     private func requestCancellation() {
@@ -483,6 +717,10 @@ final class RenderQueueModel: ObservableObject {
         activeRun = nil
         cancellationRequestedForJobID = nil
         isRendering = false
+        if singleJobID == run.jobID {
+            singleJobID = nil
+            queueShouldContinue = false
+        }
     }
 
     private func finishLaunchFailure(_ id: UUID, message: String) {
@@ -495,13 +733,31 @@ final class RenderQueueModel: ObservableObject {
     }
 
     private func failJob(at index: Int, message: String) {
+        submittedSettings.removeValue(forKey: jobs[index].id)
         jobs[index].state = .failed
         jobs[index].errorMessage = message
+        if singleJobID == jobs[index].id {
+            singleJobID = nil
+            queueShouldContinue = false
+        }
     }
 
     private func continueQueueSoon() {
-        guard queueShouldContinue else { return }
-        DispatchQueue.main.async { [weak self] in self?.startNextJob() }
+        DispatchQueue.main.async { [weak self] in
+            self?.startNextJob()
+            self?.startPendingBrowserJobIfIdle()
+        }
+    }
+
+    private func startPendingBrowserJobIfIdle() {
+        guard !isRendering, preparingBlenderJobID == nil, process == nil, !browserQueuePaused,
+              blender.executableURL != nil else { return }
+        pendingBrowserJobs.removeAll { id in !jobs.contains(where: { $0.id == id && $0.state == .queued }) }
+        guard !pendingBrowserJobs.isEmpty else { return }
+        let id = pendingBrowserJobs.removeFirst()
+        singleJobID = id
+        queueShouldContinue = true
+        startNextJob(preferredID: id)
     }
 
     private func availableDefaultOutput(for job: RenderJob) -> URL {
@@ -542,6 +798,8 @@ final class RenderQueueModel: ObservableObject {
 }
 
 private enum RenderOutputError: LocalizedError {
+    case rendererBusy
+    case blenderUnavailable
     case duplicateDestination
     case destinationExists
     case directoryNotWritable
@@ -549,6 +807,8 @@ private enum RenderOutputError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .rendererBusy: "The renderer is busy. Wait for the current render to finish."
+        case .blenderUnavailable: "Choose Blender in Drop & View Render before submitting a job."
         case .duplicateDestination:
             "Another job uses the same output destination. Choose a different PNG path."
         case .destinationExists:

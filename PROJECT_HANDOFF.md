@@ -1,6 +1,6 @@
 # Drop & View Render — project handoff
 
-Updated: 2026-11-01
+Updated: 2026-11-02
 
 ## Purpose
 
@@ -36,6 +36,12 @@ Verified on an Apple M1 Max with Blender 5.2.3:
 - The importer maps exporter-selected clear glass (material extras:
   `archicad.clearGlassOverride == true`, positive transmission, absent/zero
   volume thickness) to the native Blender 5.2 Principled Thin Wall input.
+  On 2026-11-02, user requested a Cycles-only clear-window calibration:
+  IOR 1.51, roughness 0.01, transmission 1.0. Applied during import to all
+  eligible marked thin glass, replacing links only on these three inputs.
+  Base color/normal links are preserved; the existing shadow-only branch
+  uses the calibrated transmission. Web materials and source package bytes
+  stay unchanged. File drops and browser jobs share this import path.
   Unmarked, positive-thickness and alpha-only materials are not converted.
   This uses a scoped material-hook dispatcher wrapper restored after import;
   recheck that integration when changing the supported Blender version.
@@ -63,7 +69,59 @@ An immutable per-run settings snapshot supplies the adapter arguments and stays
 visible separately from next-render controls after profile/quality edits.
 Recommended threshold was raised to 0.03 after a 512×321 diagnostic at 0.01
 averaged 484/500 samples, giving only about 3.2% sample savings. Full-resolution
-0.03 quality/time comparison is pending. CLI default threshold remains 0.01.
+0.03 interior review retained good quality in about 4 minutes versus 8:21 RAW;
+an exterior completed in 43 seconds. CLI default threshold remains 0.01.
+
+## Browser render milestone (2026-11-02)
+
+The app automatically listens on `127.0.0.1:43127`; the web FILE → EXPORT
+CONNECT action requests native approval, then polls origin-bound authenticated
+status. Sessions are memory-only and revocable from the native Browser Bridge
+menu. RENDER now uses the shared web exporter, streams a validated immutable
+package to the bridge, starts only that native job and reports progress/time.
+New camera snapshots can be submitted while rendering; the browser queue runs
+serially with immutable accepted settings and a web job selector. CANCEL targets
+the selected active or waiting job. SHOW IN FOLDER explicitly activates Finder
+and reveals a finished image. Recommended
+quality preserves scene targets; outputs go to Downloads / Drop & View Render
+with collision-safe numbering. Origin-bound idempotency prevents duplicate jobs
+on retried uploads. Inputs are session-owned temporary files; normal quit removes
+them after render shutdown. Full contract/limits/tests: `docs/BROWSER_BRIDGE.md`.
+Manual file rendering and the adapter are unchanged.
+The previous no-localhost product decision is superseded by this approved design.
+
+## View in Blender (2026-11-03)
+
+The native job Output section now offers View in Blender. The production adapter
+accepts `--save-blend <path> --prepare-only`, sharing all normal preparation and
+quality arguments, packing image resources before saving. This does not render
+or overwrite a PNG. Native preparation is asynchronous, cancellable and included
+in app-quit cleanup; it temporarily prevents rendering. Accepted browser jobs
+wait until it finishes. Last-run settings take precedence over next-render edits.
+The adapter's `--view-prepared` entry point only restores camera/Rendered viewport
+state after the saved scene is loaded; Blender resets rendered shading on load.
+The selected Blender.app is launched as a new instance; existing work is preserved.
+Packed scenes live in app Caches/BlenderViews with unique per-open directories,
+retained across app quit; Save As is needed for permanent projects. Inputs are
+reread on demand, so this is not an exact archive of a past render if the source
+or adapter changed. No webapp or scene contract changes were needed.
+
+Checks: `tests/blender_prepared_scene.py` reopens a real packaged scene after
+its temporary HDRI is removed, checks packed resources/camera/settings/glass,
+then performs a small render. `tests/BlenderViewSmoke.swift` covers native
+preparation, duplicate-click/removal guards, no PNG creation and quit cancellation.
+
+## Orthographic framing fix (2026-11-03)
+
+The web view snapshot now includes optional unzoomed `camera.orthographic`
+bounds. Cycles uses their vertical span/zoom with explicit VERTICAL sensor fit
+and preserves off-centre framing, independently of model bounds. Previous code
+guessed scale from geometry and treated the same scale as the long image side,
+producing different crops. Legacy v1 frames remain readable with default-fit
+estimation and a re-export warning. `tests/blender_orthographic_camera.py`
+compares Blender projected positions with Three.js orthographic math for
+landscape/portrait/square, ortho/axon, zoom/off-centre/up-vector cases and renders
+a real temporary package.
 
 ## Current files
 
@@ -80,7 +138,8 @@ averaged 484/500 samples, giving only about 3.2% sample savings. Full-resolution
 - Repository name: `drop-view-render`.
 - Final renderer: Blender/Cycles; Metal on Apple Silicon.
 - Distribution target: native SwiftUI macOS application first, Windows later.
-- No localhost server, browser extension or browser-based background queue.
+- The native app now owns a loopback-only browser bridge for approved connections;
+  no browser extension or browser-side render queue. See `docs/BROWSER_BRIDGE.md`.
 - The Drop & View in-app path tracer remains an interactive preview; this app
   handles final rendering.
 - The client should not expose Terminal, Python or Blender UI in normal use.

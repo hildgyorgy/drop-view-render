@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var model: RenderQueueModel
+    @EnvironmentObject private var bridge: BrowserBridge
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -13,6 +14,14 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup {
+                Menu {
+                    Text(bridge.status)
+                    ForEach(bridge.connectedOrigins, id: \.self) { Text($0) }
+                    Button("Disconnect Browsers") { bridge.revokeSessions() }
+                        .disabled(bridge.connectedOrigins.isEmpty)
+                } label: {
+                    Label("Browser Bridge", systemImage: "network")
+                }
                 Button {
                     model.openFiles()
                 } label: {
@@ -32,7 +41,7 @@ struct ContentView: View {
                 } label: {
                     Label("Cancel", systemImage: "stop.fill")
                 }
-                .disabled(!model.isRendering)
+                .disabled(!model.isRendering && model.preparingBlenderJobID == nil)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
@@ -70,7 +79,7 @@ struct ContentView: View {
                             Button("Remove", role: .destructive) {
                                 model.remove(job.id)
                             }
-                            .disabled(job.state == .rendering)
+                            .disabled(job.state == .rendering || model.preparingBlenderJobID == job.id)
                         }
                 }
             }
@@ -154,7 +163,7 @@ private struct JobRow: View {
                 .foregroundStyle(job.state.color)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 3) {
-                Text(job.inputURL.lastPathComponent)
+                Text(job.displayName ?? job.inputURL.lastPathComponent)
                     .lineLimit(1)
                 Text(job.state.label)
                     .font(.caption)
@@ -214,7 +223,7 @@ private struct JobDetail: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(job.inputURL.lastPathComponent)
+                Text(job.displayName ?? job.inputURL.lastPathComponent)
                     .font(.title2.weight(.semibold))
                 Text(job.inputURL.deletingLastPathComponent().path)
                     .font(.caption)
@@ -238,7 +247,7 @@ private struct JobDetail: View {
             Button("Remove", role: .destructive) {
                 model.remove(job.id)
             }
-            .disabled(job.state == .rendering)
+            .disabled(job.state == .rendering || model.preparingBlenderJobID == job.id)
         }
     }
 
@@ -353,6 +362,15 @@ private struct JobDetail: View {
                             model.reveal(job.outputURL)
                         }
                     }
+                    Button(model.preparingBlenderJobID == job.id ? "Preparing Blender…" : "View in Blender") {
+                        model.viewInBlender(job.id)
+                    }
+                    .disabled(!job.isInputValid || model.blender.executableURL == nil
+                              || model.isRendering || model.preparingBlenderJobID != nil)
+                    .help("Opens the prepared scene in a new Blender instance. Uses last-run settings for rendered jobs; current settings for new jobs.")
+                }
+                if let error = job.blenderViewError {
+                    Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
                 }
             }
             .padding(.top, 6)

@@ -14,6 +14,7 @@
 		A10000000000000000000006 /* RenderQueueModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* RenderQueueModel.swift */; };
 		A10000000000000000000007 /* render_glb.py in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* render_glb.py */; };
 		A10000000000000000000008 /* backdrop.hdr in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* backdrop.hdr */; };
+		A10000000000000000000009 /* BrowserBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* BrowserBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		A20000000000000000000008 /* render_glb.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = render_glb.py; sourceTree = "<group>"; };
 		A20000000000000000000009 /* Drop & View Render.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Drop & View Render.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000000000000000000000A /* backdrop.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = backdrop.hdr; sourceTree = "<group>"; };
+		A2000000000000000000000B /* BrowserBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserBridge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +58,7 @@
 				A20000000000000000000004 /* DVRenderManifest.swift */,
 				A20000000000000000000005 /* BlenderLocator.swift */,
 				A20000000000000000000006 /* RenderQueueModel.swift */,
+				A2000000000000000000000B /* BrowserBridge.swift */,
 				A40000000000000000000004 /* Resources */,
 				A20000000000000000000007 /* Info.plist */,
 			);
@@ -142,6 +145,7 @@
 				A10000000000000000000004 /* DVRenderManifest.swift in Sources */,
 				A10000000000000000000005 /* BlenderLocator.swift in Sources */,
 				A10000000000000000000006 /* RenderQueueModel.swift in Sources */,
+				A10000000000000000000009 /* BrowserBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -134,6 +134,12 @@ def bridge_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Render a GLB or .dvrender with Cycles/Metal")
     parser.add_argument("input", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--save-blend", type=Path,
+                        help="Save a self-contained prepared Blender scene")
+    parser.add_argument("--prepare-only", action="store_true",
+                        help="Save --save-blend without rendering an image")
+    parser.add_argument("--view-prepared", action="store_true",
+                        help="Set up the viewport of an already opened .blend")
     parser.add_argument("--hdri", type=Path)
     parser.add_argument("--hide-hdri-background", action="store_true")
     parser.add_argument("--width", type=int)
@@ -150,7 +156,12 @@ def bridge_arguments() -> argparse.Namespace:
         help="Treat samples as a maximum and stop clean pixels early (default: disabled)",
     )
     parser.add_argument("--noise-threshold", type=float, default=0.01)
-    return parser.parse_args(arguments)
+    args = parser.parse_args(arguments)
+    if args.prepare_only and args.save_blend is None:
+        parser.error("--prepare-only requires --save-blend")
+    if args.view_prepared and (args.prepare_only or args.save_blend is not None):
+        parser.error("--view-prepared cannot prepare or save another scene")
+    return args
 
 
 def resource_index(manifest: dict, field: str) -> int | None:
@@ -350,12 +361,25 @@ def configure_thin_glass(source_material, material: bpy.types.Material) -> bool:
         if socket is None:
             raise RuntimeError("Thin glass requires Blender 5.2's Thin Wall input")
         socket.default_value = True
+        # Cycles-only clear-window calibration. Keep source GLB/package bytes,
+        # colors and unrelated shading links intact; these three inputs are
+        # intentionally constant even if the imported material linked them.
+        for name, value in (
+            ("IOR", 1.51),
+            ("Roughness", 0.01),
+            ("Transmission Weight", 1.0),
+        ):
+            optical_input = node.inputs[name]
+            for link in list(optical_input.links):
+                material.node_tree.links.remove(link)
+            optical_input.default_value = value
         changed = True
     if changed:
         configure_glass_shadows(material)
         print(
             f"[Drop & View Cycles] Thin Wall + transmissive shadows "
-            f"(exporter-selected clear glass): {material.name}",
+            f"(exporter-selected clear glass): {material.name}; "
+            "Cycles calibration: IOR 1.51, roughness 0.01, transmission 1.0",
             flush=True,
         )
     return changed
@@ -540,7 +564,8 @@ def camera_orientation(position: Vector, target: Vector, up: Vector):
 
 
 def create_package_camera(
-    scene: bpy.types.Scene, view_session: dict, minimum: Vector, maximum: Vector
+    scene: bpy.types.Scene, view_session: dict, minimum: Vector, maximum: Vector,
+    render_aspect: float = 1.0,
 ) -> bpy.types.Object:
     saved = view_session.get("camera", {})
     position_values = saved.get("position")
@@ -556,6 +581,7 @@ def create_package_camera(
     if (target - position).length < 1e-6 or abs((target - position).normalized().dot(up)) > 0.999:
         raise ValueError("Render package camera orientation is invalid")
 
+    orientation = camera_orientation(position, target, up)
     data = bpy.data.cameras.new("Drop View Package Camera")
     data.clip_start = max((maximum - minimum).length / 10_000, 0.001)
     data.clip_end = max((maximum - minimum).length * 100, 1_000)
@@ -570,8 +596,30 @@ def create_package_camera(
     elif projection in {"axon", "ortho"}:
         data.type = "ORTHO"
         zoom = float(saved.get("zoom", 1))
-        maximum_size = max(*(maximum - minimum), 0.1)
-        data.ortho_scale = maximum_size * 1.44 / max(zoom, 1e-6)
+        if not math.isfinite(zoom) or zoom <= 0:
+            raise ValueError("Render package camera zoom is invalid")
+        data.sensor_fit = "VERTICAL"
+        frame = saved.get("orthographic")
+        if frame is not None:
+            if not isinstance(frame, dict) or not all(
+                isinstance(frame.get(key), (int, float))
+                and not isinstance(frame[key], bool) and math.isfinite(frame[key])
+                for key in ("left", "right", "top", "bottom")
+            ):
+                raise ValueError("Render package orthographic frame is invalid")
+            left, right, top, bottom = (frame[key] for key in ("left", "right", "top", "bottom"))
+            if right <= left or top <= bottom:
+                raise ValueError("Render package orthographic frame is invalid")
+            data.ortho_scale = (top - bottom) / zoom
+            # Three.js zoom scales about the frustum centre, not the origin.
+            position += orientation @ Vector(((left + right) / 2, (top + bottom) / 2, 0))
+        else:
+            # Legacy v1 had no frustum: reproduce the viewer's default fit as
+            # closely as possible, but custom/imported framing is unrecoverable.
+            maximum_size = max(*(maximum - minimum), 0.1)
+            data.ortho_scale = maximum_size * 1.44 / min(render_aspect, 1) / zoom
+            print("[Drop & View Cycles] Legacy orthographic camera: estimated frame; "
+                  "re-export from Drop & View for exact framing")
     else:
         raise ValueError("Unsupported render package camera projection")
 
@@ -579,7 +627,7 @@ def create_package_camera(
     scene.collection.objects.link(camera)
     camera.location = position
     camera.rotation_mode = "QUATERNION"
-    camera.rotation_quaternion = camera_orientation(position, target, up)
+    camera.rotation_quaternion = orientation
     scene.camera = camera
     print(f"[Drop & View Cycles] Using package camera ({projection})")
     return camera
@@ -795,9 +843,51 @@ def configure_render(scene: bpy.types.Scene, args: argparse.Namespace, output: P
         pass
 
 
+def configure_scene_view() -> None:
+    """Also called after GUI loading: Blender resets rendered shading on load."""
+    for screen in bpy.data.screens:
+        for area in screen.areas:
+            for space in area.spaces:
+                if space.type == "VIEW_3D":
+                    space.camera = bpy.context.scene.camera
+                    space.region_3d.view_perspective = "CAMERA"
+                    space.shading.type = "RENDERED"
+                    space.shading.use_scene_world_render = True
+                    space.shading.use_scene_lights_render = True
+
+
+def save_prepared_scene(scene: bpy.types.Scene, path: Path) -> None:
+    """Save before temporary package resources disappear; no render is started."""
+    if path.suffix.lower() != ".blend":
+        raise ValueError("Prepared scene destination must end with .blend")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        raise FileExistsError(f"Prepared scene already exists: {path}")
+    configure_scene_view()
+    result = bpy.ops.file.pack_all()
+    if "FINISHED" not in result:
+        raise RuntimeError("Could not pack the scene resources")
+    for image in bpy.data.images:
+        if image.source == "FILE" and image.filepath and image.packed_file is None:
+            raise RuntimeError(f"Scene image could not be packed: {image.name}")
+    result = bpy.ops.wm.save_as_mainfile(filepath=str(path), check_existing=False,
+                                        compress=False)
+    if "FINISHED" not in result or not path.is_file():
+        raise RuntimeError("Could not save the prepared Blender scene")
+    print(f"[Drop & View Cycles] SCENE_READY: {path}", flush=True)
+
+
 def main() -> None:
     args = bridge_arguments()
     input_path = args.input.expanduser().resolve()
+    if args.view_prepared:
+        if input_path.suffix.lower() != ".blend" or Path(bpy.data.filepath).resolve() != input_path:
+            raise ValueError("--view-prepared requires this .blend to already be open")
+        configure_scene_view()
+        if not bpy.app.background:
+            # Apply once more after the GUI restores its windows/workspace.
+            bpy.app.timers.register(configure_scene_view, first_interval=0.5)
+        return
     if input_path.suffix.lower() not in {".glb", ".dvrender"} or not input_path.is_file():
         raise ValueError(f"Expected an existing GLB or .dvrender file: {input_path}")
 
@@ -841,7 +931,8 @@ def main() -> None:
         output = (
             args.output or input_path.with_name(f"{input_path.stem}-cycles.png")
         ).expanduser().resolve()
-        output.parent.mkdir(parents=True, exist_ok=True)
+        if not args.prepare_only:
+            output.parent.mkdir(parents=True, exist_ok=True)
 
         reset_scene()
         scene = bpy.context.scene
@@ -858,7 +949,7 @@ def main() -> None:
         center = (minimum + maximum) * 0.5
         radius = max((maximum - minimum).length * 0.5, 0.1)
         if view_session:
-            create_package_camera(scene, view_session, minimum, maximum)
+            create_package_camera(scene, view_session, minimum, maximum, args.width / args.height)
         else:
             choose_camera(scene, minimum, maximum, metadata)
         # A packaged HDRI carries the final environment illumination and its
@@ -872,6 +963,10 @@ def main() -> None:
             hide_hdri_background=args.hide_hdri_background,
         )
         configure_render(scene, args, output)
+        if args.save_blend:
+            save_prepared_scene(scene, args.save_blend.expanduser().resolve())
+        if args.prepare_only:
+            return
 
         print(
             f"[Drop & View Cycles] Rendering {args.width}x{args.height}, "

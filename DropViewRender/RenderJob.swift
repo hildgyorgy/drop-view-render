@@ -9,6 +9,7 @@ struct RenderJob: Identifiable {
     // Keep the user-chosen stem stable across automatic rerender numbering.
     var outputSeriesBaseURL: URL?
     var packageSummary: String?
+    var displayName: String?
     let thumbnail: NSImage?
     var overridesResolution: Bool
     var qualityProfile: RenderQualityProfile = .recommended
@@ -35,6 +36,8 @@ struct RenderJob: Identifiable {
     var renderStartedUptime: TimeInterval?
     var renderDuration: TimeInterval?
     var lastRunSettings: RenderSettingsSnapshot?
+    var blenderSceneURL: URL?
+    var blenderViewError: String?
 
     var resolvedSettings: RenderSettingsSnapshot {
         let recommended = qualityProfile == .recommended
@@ -110,7 +113,7 @@ struct RenderSettingsSnapshot: Equatable {
     let adaptive: Bool
     let noiseThreshold: Double
     let showsHDRIBackground: Bool
-    let outputURL: URL
+    var outputURL: URL
 
     var summary: String {
         let sampling = adaptive
