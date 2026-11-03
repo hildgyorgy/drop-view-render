@@ -123,6 +123,21 @@ compares Blender projected positions with Three.js orthographic math for
 landscape/portrait/square, ortho/axon, zoom/off-centre/up-vector cases and renders
 a real temporary package.
 
+## Safari Native Messaging prototype (2026-11-03)
+
+The app embeds a sandboxed Safari
+Web Extension target. Web page -> content script -> background -> Swift
+`SafariWebExtensionHandler` -> page supports bounded diagnostic ping/pong only.
+The handler is a separate extension process; no claim of live GUI queue access.
+HTTP remains the render path. Tests cover the real Swift NSExtensionItem handler
+and the full JS path through a substituted Safari runtime/test-only stdio harness.
+Real Safari acceptance succeeded after explicit user approval to enable the
+extension/local site: two correlated PONGs (947/313 ms), native PID 29000 verified
+as the signed `.appex` process. Local 127.0.0.1 access was allowed for one day.
+149 web unit tests, four WebKit smoke tests, native/JS messaging tests and the
+existing HTTP bridge regression passed. See `docs/SAFARI_NATIVE_MESSAGING.md` for signing,
+acceptance checks and the deferred chunked upload/queue milestones.
+
 ## Current files
 
 - `DropViewRender.xcodeproj` — native macOS application project.
@@ -138,8 +153,10 @@ a real temporary package.
 - Repository name: `drop-view-render`.
 - Final renderer: Blender/Cycles; Metal on Apple Silicon.
 - Distribution target: native SwiftUI macOS application first, Windows later.
-- The native app now owns a loopback-only browser bridge for approved connections;
-  no browser extension or browser-side render queue. See `docs/BROWSER_BRIDGE.md`.
+- The native app owns a loopback-only browser bridge for approved renders.
+  A Safari Native Messaging diagnostic prototype is now embedded separately;
+  uploads/queue integration remain future milestones. See `docs/BROWSER_BRIDGE.md`
+  and `docs/SAFARI_NATIVE_MESSAGING.md`.
 - The Drop & View in-app path tracer remains an interactive preview; this app
   handles final rendering.
 - The client should not expose Terminal, Python or Blender UI in normal use.

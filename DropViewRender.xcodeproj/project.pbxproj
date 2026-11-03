@@ -6,6 +6,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B10000000000000000000001 = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
+		B10000000000000000000002 = {isa = PBXBuildFile; fileRef = B20000000000000000000002; };
+		B10000000000000000000003 = {isa = PBXBuildFile; fileRef = B20000000000000000000003; };
+		B10000000000000000000004 = {isa = PBXBuildFile; fileRef = B20000000000000000000004; };
+		B10000000000000000000005 = {isa = PBXBuildFile; fileRef = B20000000000000000000005; };
+		B10000000000000000000006 = {isa = PBXBuildFile; fileRef = B20000000000000000000006; };
+		B10000000000000000000007 = {isa = PBXBuildFile; fileRef = B20000000000000000000009; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); }; };
 		A10000000000000000000001 /* DropViewRenderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* DropViewRenderApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* RenderJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* RenderJob.swift */; };
@@ -17,7 +24,24 @@
 		A10000000000000000000009 /* BrowserBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* BrowserBridge.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B70000000000000000000001 = {isa = PBXContainerItemProxy; containerPortal = A70000000000000000000001; proxyType = 1; remoteGlobalIDString = B50000000000000000000001; remoteInfo = "Drop & View Render Safari"; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B60000000000000000000003 = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (B10000000000000000000007); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		B20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariNativeMessage.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
+		B20000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
+		B20000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
+		B20000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = protocol.js; sourceTree = "<group>"; };
+		B20000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SafariExtension.entitlements; sourceTree = "<group>"; };
+		B20000000000000000000009 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DropViewRenderSafariExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000001 /* DropViewRenderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropViewRenderApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* RenderJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderJob.swift; sourceTree = "<group>"; };
@@ -41,6 +65,8 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		B40000000000000000000001 = {isa = PBXGroup; children = (B20000000000000000000001, B20000000000000000000002, B40000000000000000000002, B20000000000000000000007, B20000000000000000000008); path = SafariExtension; sourceTree = "<group>"; };
+		B40000000000000000000002 = {isa = PBXGroup; children = (B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006); path = Resources; sourceTree = "<group>"; };
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -60,6 +86,7 @@
 				A20000000000000000000006 /* RenderQueueModel.swift */,
 				A2000000000000000000000B /* BrowserBridge.swift */,
 				A40000000000000000000004 /* Resources */,
+				B40000000000000000000001 /* SafariExtension */,
 				A20000000000000000000007 /* Info.plist */,
 			);
 			path = DropViewRender;
@@ -67,7 +94,7 @@
 		};
 		A40000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
-			children = (A20000000000000000000009 /* Drop & View Render.app */);
+			children = (A20000000000000000000009 /* Drop & View Render.app */, B20000000000000000000009);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -83,6 +110,17 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B50000000000000000000001 /* Drop & View Render Safari */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B90000000000000000000001;
+			buildPhases = (B60000000000000000000001, B60000000000000000000002);
+			buildRules = ();
+			dependencies = ();
+			name = "Drop & View Render Safari";
+			productName = DropViewRenderSafariExtension;
+			productReference = B20000000000000000000009;
+			productType = "com.apple.product-type.app-extension";
+		};
 		A50000000000000000000001 /* Drop & View Render */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A90000000000000000000002 /* Build configuration list */;
@@ -90,9 +128,10 @@
 				A60000000000000000000001 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A60000000000000000000002 /* Resources */,
+				B60000000000000000000003 /* Embed App Extensions */,
 			);
 			buildRules = ();
-			dependencies = ();
+			dependencies = (B70000000000000000000002);
 			name = "Drop & View Render";
 			productName = DropViewRender;
 			productReference = A20000000000000000000009 /* Drop & View Render.app */;
@@ -118,11 +157,12 @@
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A50000000000000000000001 /* Drop & View Render */);
+			targets = (A50000000000000000000001 /* Drop & View Render */, B50000000000000000000001);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B60000000000000000000002 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -135,6 +175,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B60000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -151,7 +192,44 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B70000000000000000000002 = {isa = PBXTargetDependency; target = B50000000000000000000001; targetProxy = B70000000000000000000001; };
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		B80000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = {
+			APPLICATION_EXTENSION_API_ONLY = YES;
+			CODE_SIGNING_ALLOWED = NO;
+			CODE_SIGN_ENTITLEMENTS = DropViewRender/SafariExtension/SafariExtension.entitlements;
+			CURRENT_PROJECT_VERSION = 1;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = DropViewRender/SafariExtension/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+			MARKETING_VERSION = 0.1.0;
+			OTHER_LDFLAGS = "$(inherited) -framework SafariServices";
+			PRODUCT_BUNDLE_IDENTIFIER = com.hildgyorgy.DropViewRender.SafariExtension;
+			PRODUCT_NAME = DropViewRenderSafariExtension;
+			SKIP_INSTALL = YES;
+			SWIFT_VERSION = 5.0;
+		}; name = Debug; };
+		B80000000000000000000002 = {isa = XCBuildConfiguration; buildSettings = {
+			APPLICATION_EXTENSION_API_ONLY = YES;
+			CODE_SIGNING_ALLOWED = NO;
+			CODE_SIGN_ENTITLEMENTS = DropViewRender/SafariExtension/SafariExtension.entitlements;
+			CURRENT_PROJECT_VERSION = 1;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = DropViewRender/SafariExtension/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+			MARKETING_VERSION = 0.1.0;
+			OTHER_LDFLAGS = "$(inherited) -framework SafariServices";
+			PRODUCT_BUNDLE_IDENTIFIER = com.hildgyorgy.DropViewRender.SafariExtension;
+			PRODUCT_NAME = DropViewRenderSafariExtension;
+			SKIP_INSTALL = YES;
+			SWIFT_COMPILATION_MODE = wholemodule;
+			SWIFT_VERSION = 5.0;
+		}; name = Release; };
 		A80000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; }; name = Debug; };
 		A80000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; }; name = Release; };
 		A80000000000000000000003 /* Debug */ = {
@@ -198,6 +276,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B90000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (B80000000000000000000001, B80000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A90000000000000000000001 /* Build configuration list */ = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000001, A80000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A90000000000000000000002 /* Build configuration list */ = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000003, A80000000000000000000004); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */

@@ -1,10 +1,12 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import SafariServices
 
 struct ContentView: View {
     @EnvironmentObject private var model: RenderQueueModel
     @EnvironmentObject private var bridge: BrowserBridge
     @State private var isDropTargeted = false
+    @State private var safariExtensionError: String?
 
     var body: some View {
         NavigationSplitView {
@@ -19,6 +21,15 @@ struct ContentView: View {
                     ForEach(bridge.connectedOrigins, id: \.self) { Text($0) }
                     Button("Disconnect Browsers") { bridge.revokeSessions() }
                         .disabled(bridge.connectedOrigins.isEmpty)
+                    Divider()
+                    Button("Safari Extension Settings…") {
+                        SFSafariApplication.showPreferencesForExtension(
+                            withIdentifier: "com.hildgyorgy.DropViewRender.SafariExtension"
+                        ) { error in
+                            DispatchQueue.main.async { safariExtensionError = error?.localizedDescription }
+                        }
+                    }
+                    if let safariExtensionError { Text(safariExtensionError) }
                 } label: {
                     Label("Browser Bridge", systemImage: "network")
                 }

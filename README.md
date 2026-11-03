@@ -88,6 +88,15 @@ connections. **SAVE PACKAGE** and the manual native workflow remain available.
 See [the bridge contract](docs/BROWSER_BRIDGE.md) for limits, tests and browser
 compatibility. Windows support is not part of this change.
 
+## Safari Native Messaging prototype
+
+Safari Native Messaging phase-1 prototype is also available: the app embeds a
+Safari Web Extension, and the updated web export panel has a separate
+**SAFARI EXTENSION PROTOTYPE → TEST NATIVE CONNECTION** ping/pong test. It needs a
+signed build and explicit Safari enablement/site access. The responder is the
+native extension handler; uploads and the GUI render queue still use HTTP.
+Build/test/enablement details: [Safari prototype](docs/SAFARI_NATIVE_MESSAGING.md).
+
 ## View in Blender
 
 Select a valid job and use **View in Blender** in its **Output** section, beside
