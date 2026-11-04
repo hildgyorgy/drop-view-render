@@ -90,11 +90,14 @@ compatibility. Windows support is not part of this change.
 
 ## Safari Native Messaging prototype
 
-Safari Native Messaging phase-1 prototype is also available: the app embeds a
-Safari Web Extension, and the updated web export panel has a separate
-**SAFARI EXTENSION PROTOTYPE → TEST NATIVE CONNECTION** ping/pong test. It needs a
-signed build and explicit Safari enablement/site access. The responder is the
-native extension handler; uploads and the GUI render queue still use HTTP.
+The web render panel now lets you choose **HTTP** or **SAFARI EXTENSION** before
+connecting. Safari sends the scene as acknowledged 64 KiB chunks through Native
+Messaging. The native handler stages it on disk and streams it to the existing
+authenticated loopback HTTP bridge/queue. The browser makes no localhost HTTP
+request in Safari mode. Rendering, status, cancellation and Finder reveal use the
+same queue and preserve source targets and numbered output behavior. The app must
+be running. A signed extension build and Safari enablement/site access are needed.
+**TEST NATIVE CONNECTION** remains available separately for ping/pong diagnostics.
 Build/test/enablement details: [Safari prototype](docs/SAFARI_NATIVE_MESSAGING.md).
 
 ## View in Blender

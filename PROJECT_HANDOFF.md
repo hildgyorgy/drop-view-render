@@ -123,20 +123,25 @@ compares Blender projected positions with Three.js orthographic math for
 landscape/portrait/square, ortho/axon, zoom/off-centre/up-vector cases and renders
 a real temporary package.
 
-## Safari Native Messaging prototype (2026-11-03)
+## Safari Native Messaging chunked transfer (2026-11-04)
 
-The app embeds a sandboxed Safari
-Web Extension target. Web page -> content script -> background -> Swift
-`SafariWebExtensionHandler` -> page supports bounded diagnostic ping/pong only.
-The handler is a separate extension process; no claim of live GUI queue access.
-HTTP remains the render path. Tests cover the real Swift NSExtensionItem handler
-and the full JS path through a substituted Safari runtime/test-only stdio harness.
-Real Safari acceptance succeeded after explicit user approval to enable the
-extension/local site: two correlated PONGs (947/313 ms), native PID 29000 verified
-as the signed `.appex` process. Local 127.0.0.1 access was allowed for one day.
-149 web unit tests, four WebKit smoke tests, native/JS messaging tests and the
-existing HTTP bridge regression passed. See `docs/SAFARI_NATIVE_MESSAGING.md` for signing,
-acceptance checks and the deferred chunked upload/queue milestones.
+The signed embedded extension now supports pair/status/job/cancel/reveal and
+64 KiB acknowledged SHA-256 upload chunks, private disk staging and bounded
+retry/abort. The webapp explicitly selects HTTP (default) or SAFARI EXTENSION.
+Safari page -> content script -> background -> Swift handler -> native URLSession
+file upload to the existing loopback service -> existing RenderQueueModel queue.
+The browser makes no localhost HTTP fetch on the Safari path; the containing app
+must run. No App Group/new queue is introduced, and HTTP remains usable.
+
+Native store/handler tests, four JS integration tests, 153 web unit tests, four
+WebKit smoke tests, signed/unsigned builds, actual Cycles queue render and
+same-submission dedup passed. A 256 MiB staging stress run peaked at ~8.4 MiB RSS
+for the standalone harness. Real Safari extension transfer produced a Finished
+3456×2168 render in 7 seconds with explicitly selected 1 test sample (restored to
+500 afterwards). A stale background web status prompted forced manual refresh
+and visibility/focus refresh improvements; final live UI refresh/cancellation
+and public HTTPS deployment remain acceptance checks. See
+`docs/SAFARI_NATIVE_MESSAGING.md` for architecture, limits, signing and evidence.
 
 ## Current files
 
@@ -154,8 +159,8 @@ acceptance checks and the deferred chunked upload/queue milestones.
 - Final renderer: Blender/Cycles; Metal on Apple Silicon.
 - Distribution target: native SwiftUI macOS application first, Windows later.
 - The native app owns a loopback-only browser bridge for approved renders.
-  A Safari Native Messaging diagnostic prototype is now embedded separately;
-  uploads/queue integration remain future milestones. See `docs/BROWSER_BRIDGE.md`
+  A Safari Native Messaging prototype now stages chunked uploads and relays
+  them natively to that same queue; the browser HTTP transport remains available. See `docs/BROWSER_BRIDGE.md`
   and `docs/SAFARI_NATIVE_MESSAGING.md`.
 - The Drop & View in-app path tracer remains an interactive preview; this app
   handles final rendering.

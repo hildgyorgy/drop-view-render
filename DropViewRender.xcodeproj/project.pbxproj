@@ -6,6 +6,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C10000000000000000000001 = {isa = PBXBuildFile; fileRef = C20000000000000000000001; };
+		C10000000000000000000002 = {isa = PBXBuildFile; fileRef = C20000000000000000000002; };
 		B10000000000000000000001 = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
 		B10000000000000000000002 = {isa = PBXBuildFile; fileRef = B20000000000000000000002; };
 		B10000000000000000000003 = {isa = PBXBuildFile; fileRef = B20000000000000000000003; };
@@ -33,6 +35,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariUploadStore.swift; sourceTree = "<group>"; };
+		C20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariNativeRouter.swift; sourceTree = "<group>"; };
 		B20000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariNativeMessage.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
@@ -65,7 +69,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		B40000000000000000000001 = {isa = PBXGroup; children = (B20000000000000000000001, B20000000000000000000002, B40000000000000000000002, B20000000000000000000007, B20000000000000000000008); path = SafariExtension; sourceTree = "<group>"; };
+		B40000000000000000000001 = {isa = PBXGroup; children = (B20000000000000000000001, B20000000000000000000002, C20000000000000000000001, C20000000000000000000002, B40000000000000000000002, B20000000000000000000007, B20000000000000000000008); path = SafariExtension; sourceTree = "<group>"; };
 		B40000000000000000000002 = {isa = PBXGroup; children = (B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006); path = Resources; sourceTree = "<group>"; };
 		A40000000000000000000001 = {
 			isa = PBXGroup;
@@ -175,7 +179,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		B60000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
+		B60000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, C10000000000000000000001, C10000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;

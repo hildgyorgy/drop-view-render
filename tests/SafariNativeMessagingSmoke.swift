@@ -1,4 +1,4 @@
-// swiftc SafariExtension/{SafariNativeMessage,SafariWebExtensionHandler}.swift this.swift -o /tmp/dvr-safari-native-smoke
+// Compile with all SafariExtension/*.swift sources; see docs/SAFARI_NATIVE_MESSAGING.md.
 import Foundation
 import SafariServices
 
