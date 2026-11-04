@@ -22,6 +22,9 @@ struct ContentView: View {
                     Button("Disconnect Browsers") { bridge.revokeSessions() }
                         .disabled(bridge.connectedOrigins.isEmpty)
                     Divider()
+                    Button("Set Up Chrome / Edge…") {
+                        BrowserExtensionSetup.install()
+                    }
                     Button("Safari Extension Settings…") {
                         SFSafariApplication.showPreferencesForExtension(
                             withIdentifier: "com.hildgyorgy.DropViewRender.SafariExtension"

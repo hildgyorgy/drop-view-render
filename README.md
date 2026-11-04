@@ -74,7 +74,7 @@ at the same aspect keeps the frame; changing aspect preserves vertical coverage.
 
 ## Render directly from the browser
 
-Run this app, then choose **FILE → EXPORT → CONNECT** in the updated Drop & View
+Run this app, then choose **i → RENDER WITH BLENDER → EXPORT → CONNECT** in the updated Drop & View
 web app and approve the connection. **RENDER** sends the current scene directly
 to Cycles using Recommended quality, keeping its dimensions, sample maximum and
 bounce limits. The browser shows progress/time, **CANCEL**, and **SHOW IN FOLDER**
@@ -88,17 +88,29 @@ connections. **SAVE PACKAGE** and the manual native workflow remain available.
 See [the bridge contract](docs/BROWSER_BRIDGE.md) for limits, tests and browser
 compatibility. Windows support is not part of this change.
 
-## Safari Native Messaging prototype
+## Browser extensions
 
-The web render panel now lets you choose **HTTP** or **SAFARI EXTENSION** before
-connecting. Safari sends the scene as acknowledged 64 KiB chunks through Native
-Messaging. The native handler stages it on disk and streams it to the existing
-authenticated loopback HTTP bridge/queue. The browser makes no localhost HTTP
-request in Safari mode. Rendering, status, cancellation and Finder reveal use the
-same queue and preserve source targets and numbered output behavior. The app must
-be running. A signed extension build and Safari enablement/site access are needed.
-**TEST NATIVE CONNECTION** remains available separately for ping/pong diagnostics.
-Build/test/enablement details: [Safari prototype](docs/SAFARI_NATIVE_MESSAGING.md).
+**CONNECT** automatically detects the Drop & View Render extension in Safari,
+Chrome or Edge when you press CONNECT. It does not pair automatically, start a
+render or fall back silently. There is no web transport selector or direct
+browser HTTP client. Diagnostics use the detected extension as well.
+
+All extensions send acknowledged 64 KiB chunks, stage on disk and stream to the
+same authenticated native loopback HTTP queue. The web page makes no localhost
+HTTP request in extension mode. Keep Drop & View Render running.
+
+Safari's signed extension is embedded in the app; enable it and website access
+in Safari settings. For Chrome/Edge, the app includes a shared Manifest V3
+extension and compiled native messaging helper. Use **Browser Bridge → Set Up
+Chrome / Edge…**, then load the extension folder shown by Finder through the
+browser's **Load unpacked** action. This is a developer prototype; store publishing
+and release installation remain separate work. Registration is per macOS user,
+only for installed browsers; repeat it if the app moves. Live Edge upload,
+FINISHED status, indexed rerender, CANCELLED and Finder reveal were verified.
+Chrome is not installed on the test Mac, so a separate live Chrome check remains.
+
+Details: [Chrome / Edge setup](docs/CHROMIUM_NATIVE_MESSAGING.md),
+[Safari setup and shared upload protocol](docs/SAFARI_NATIVE_MESSAGING.md).
 
 ## View in Blender
 

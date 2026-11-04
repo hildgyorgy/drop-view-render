@@ -2,14 +2,16 @@
 
 The native app owns an HTTP/1.1 listener at `127.0.0.1:43127` for its lifetime.
 It never binds to the LAN; port conflicts are visible in the Browser Bridge
-menu. There is no separate daemon or browser extension. This protocol is
+menu. Browser extensions use this service through their native relay; the
+webapp has no direct HTTP client or transport selector. This protocol is
 versioned independently of the unchanged `.dvrender` v1 package.
 
 ## User workflow
 
 1. Run the rebuilt Drop & View Render app and choose Blender if necessary.
-2. In the updated web app choose FILE → EXPORT → CONNECT. Grant browser
-   local/loopback access if requested, then Allow in the native approval sheet.
+2. Enable the companion browser extension, then choose i → RENDER WITH BLENDER
+   → EXPORT → CONNECT. The extension is detected automatically; approve the
+   connection in the native sheet. Missing extensions retain SAVE PACKAGE.
 3. Compose a scene, set IMAGE / SAMPLES as usual, turn SECTION off, then RENDER.
 4. The shared SAVE PACKAGE exporter captures the current materialized GLB,
    view, HDRI, render targets and thumbnail. Upload happens locally, without a
@@ -104,7 +106,11 @@ at 8 GiB and 64 jobs; rejected uploads consume neither quota. Existing IDs can
 still be retried at these limits. No image, Blender binary or Python runtime is
 bundled by this feature.
 
-## Validation and browser limits
+## Historical HTTP validation and browser limits
+
+The checks below describe the retired direct browser HTTP client. The native
+HTTP API remains in use behind Native Messaging. Current extension acceptance
+is recorded in the native repo’s Safari/Chromium messaging documents.
 
 Native connection smoke (macOS; port 43127 must be free):
 

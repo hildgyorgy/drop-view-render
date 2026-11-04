@@ -27,7 +27,7 @@ export function sanitizeRequest(value) {
   const { id, operation } = value;
   const request = { protocolVersion: 1, id, operation };
   if (operation === "ping") return validPing(value) ? { ...request, text: value.text } : null;
-  if (operation === "pair") return request;
+  if (["pair", "discover"].includes(operation)) return request;
   if (typeof value.token !== "string" || !/^[A-Fa-f0-9-]{72}$/.test(value.token)) return null;
   request.token = value.token;
   if (["status", "disconnect"].includes(operation)) return request;
@@ -48,18 +48,20 @@ export function sanitizeRequest(value) {
   return null;
 }
 
-export async function handleMessage(message, sender, sendNative) {
+export async function handleMessage(message, sender, sendNative, transport = "safari-native-messaging") {
   if (!sender.tab || sender.frameId !== 0 || !allowedPage(sender.url)) {
     return failure("", "origin_not_allowed");
   }
   const request = sanitizeRequest(message);
   if (!request) return failure(uuid(message?.id) ? message.id : "", "invalid_message");
+  if (request.operation === "discover") return { protocolVersion: 1, id: request.id, ok: true,
+    transport, data: { transport, capabilities: ["chunked-upload", "jobs"] } };
   request.pageURL = sender.url;
   try {
     const result = await sendNative(NATIVE_APP, request);
     if (!result || result.protocolVersion !== 1 || result.id !== request.id ||
         typeof result.ok !== "boolean" ||
-        (result.ok && (result.transport !== "safari-native-messaging" ||
+        (result.ok && (result.transport !== transport ||
           (request.operation === "ping" ? result.operation !== "pong" || result.text !== request.text ||
             result.app !== "Drop & View Render" : !result.data || typeof result.data !== "object")))) {
       return failure(request.id, "invalid_native_response");

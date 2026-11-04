@@ -123,6 +123,16 @@ compares Blender projected positions with Three.js orthographic math for
 landscape/portrait/square, ortho/axon, zoom/off-centre/up-vector cases and renders
 a real temporary package.
 
+## Extension-only web connection (2026-11-04)
+
+User confirmed the Safari extension connection works and authorized removal of
+the explicit browser HTTP path. The web transport selector and direct HTTP
+client were removed. CONNECT always discovers/uses the installed browser
+extension; missing extensions prompt install/enable/reload or SAVE PACKAGE.
+The native loopback HTTP relay remains unchanged behind the extensions, along
+with its queue/authentication/validation. Earlier manual HTTP milestones below
+are historical. Safari confirmation is user-reported, not a new automated live run.
+
 ## Safari Native Messaging chunked transfer (2026-11-04)
 
 The signed embedded extension now supports pair/status/job/cancel/reveal and
@@ -143,6 +153,32 @@ and visibility/focus refresh improvements; final live UI refresh/cancellation
 and public HTTPS deployment remain acceptance checks. See
 `docs/SAFARI_NATIVE_MESSAGING.md` for architecture, limits, signing and evidence.
 
+## Chrome / Edge Native Messaging and automatic detection (2026-11-04)
+
+The app now bundles a shared MV3 Chromium extension and a signed command-line
+`DropViewRenderNativeHost`. The helper reuses SafariNativeRouter/UploadStore,
+validates a pinned extension caller ID, and speaks bounded length-prefixed stdio.
+A persistent native port serves the chunk stream. Xcode copies the same
+content/protocol JS into both extensions, with no vendored runtime.
+Browser Bridge → Set Up Chrome / Edge writes user-level native host manifests
+only for installed browsers and shows the bundled extension folder. Local testing
+uses Load unpacked; publishing/store IDs/release installation are not done.
+The embedded public key pins dev ID jfbkhccnkpadgimkmcnppodfoccadelm.
+
+Web CONNECT defaults to AUTOMATIC (EXTENSION), using a bounded local discovery
+message to distinguish Safari/Chromium, then normal native pairing. HTTP (MANUAL)
+remains explicit. Discovery never pairs or launches the helper. Common diagnostics
+now use the detected transport. No automatic HTTP fallback or renderer changes.
+
+Actual Edge acceptance: user-approved developer load + native registration,
+automatic detection, pairing, 1512×1774 four-sample render FINISHED in 6 seconds;
+500-sample cap rerenders FINISHED in 10 seconds each with indexed filenames;
+next submission CANCELLED; SHOW IN FOLDER selected the correct PNG in Finder.
+Sample field restored to 500. The native helper also passed real Cycles queue,
+retry/dedup and framed message tests. Chrome itself is absent on this Mac;
+Chrome live acceptance and public HTTPS deployment remain to verify.
+See `docs/CHROMIUM_NATIVE_MESSAGING.md` for packaging, limits and tests.
+
 ## Current files
 
 - `DropViewRender.xcodeproj` — native macOS application project.
@@ -160,7 +196,7 @@ and public HTTPS deployment remain acceptance checks. See
 - Distribution target: native SwiftUI macOS application first, Windows later.
 - The native app owns a loopback-only browser bridge for approved renders.
   A Safari Native Messaging prototype now stages chunked uploads and relays
-  them natively to that same queue; the browser HTTP transport remains available. See `docs/BROWSER_BRIDGE.md`
+  them natively to that same queue; direct browser HTTP transport is retired. See `docs/BROWSER_BRIDGE.md`
   and `docs/SAFARI_NATIVE_MESSAGING.md`.
 - The Drop & View in-app path tracer remains an interactive preview; this app
   handles final rendering.

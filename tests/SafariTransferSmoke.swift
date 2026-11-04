@@ -25,6 +25,21 @@ struct SafariTransferSmoke {
         try await Task.sleep(for: .milliseconds(300))
         precondition(bridge.status.hasPrefix("Browser bridge: 127.0.0.1:"), bridge.status)
 
+        var host: Process?
+        let hostInput = Pipe(), hostOutput = Pipe()
+        if CommandLine.arguments.count > 2 {
+            let executable = URL(fileURLWithPath: CommandLine.arguments[2])
+            let manifest = executable.deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("Resources/ChromiumExtension/manifest.json")
+            let process = Process()
+            process.executableURL = executable
+            process.arguments = ["chrome-extension://" + (try BrowserExtensionIdentity.identifier(manifest: manifest)) + "/"]
+            process.standardInput = hostInput
+            process.standardOutput = hostOutput
+            try process.run()
+            host = process
+        }
+        defer { try? hostInput.fileHandleForWriting.close(); host?.waitUntilExit() }
         let page = "https://hildgyorgy.github.io/drop-3d-view/"
         var token: String?
         func request(_ operation: String, _ fields: [String: Any] = [:]) async throws -> [String: Any] {
@@ -32,7 +47,31 @@ struct SafariTransferSmoke {
                                           "operation": operation, "pageURL": page]
             if let token { message["token"] = token }
             message.merge(fields) { _, new in new }
-            let result = await router.handle(message)
+            let result: [String: Any]
+            if host != nil {
+                let frame = try JSONSerialization.data(withJSONObject: message)
+                result = try await Task.detached {
+                    var size = UInt32(frame.count).littleEndian
+                    try withUnsafeBytes(of: &size) { try hostInput.fileHandleForWriting.write(contentsOf: Data($0)) }
+                    try hostInput.fileHandleForWriting.write(contentsOf: frame)
+                    func read(_ count: Int) throws -> Data {
+                        var data = Data()
+                        while data.count < count {
+                            guard let next = try hostOutput.fileHandleForReading.read(upToCount: count - data.count), !next.isEmpty else {
+                                throw CocoaError(.fileReadCorruptFile)
+                            }
+                            data.append(next)
+                        }
+                        return data
+                    }
+                    let header = try read(4)
+                    let length = header.enumerated().reduce(0) { $0 | Int($1.element) << ($1.offset * 8) }
+                    precondition((1...100000).contains(length))
+                    let result = try JSONSerialization.jsonObject(with: read(length)) as! [String: Any]
+                    precondition(result["transport"] as? String == "chromium-native-messaging")
+                    return result
+                }.value
+            } else { result = await router.handle(message) }
             guard result["ok"] as? Bool == true, let data = result["data"] as? [String: Any] else {
                 throw NSError(domain: "Smoke", code: 1, userInfo: [NSLocalizedDescriptionKey: "\(operation): \(result)"])
             }

@@ -9,7 +9,7 @@
         event.data?.channel !== "drop-view-render:safari:request") return;
     const request = event.data.message;
     if (!request || request.protocolVersion !== 1 ||
-        !["ping", "pair", "status", "disconnect", "job", "cancel", "reveal",
+        !["discover", "ping", "pair", "status", "disconnect", "job", "cancel", "reveal",
           "uploadBegin", "uploadChunk", "uploadFinish", "uploadAbort"].includes(request.operation) ||
         typeof request.id !== "string" || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(request.id) ||
         pending >= 4 || active.has(request.id)) return;
@@ -37,7 +37,7 @@
     }), request.operation === "pair" ? 120000 : request.operation === "uploadFinish" ? 600000 : 15000); });
     try {
       // Copy only the small protocol fields; never serialize page-supplied blobs.
-      message = await Promise.race([browser.runtime.sendMessage(copy), timer]);
+      message = await Promise.race([(globalThis.browser ?? globalThis.chrome).runtime.sendMessage(copy), timer]);
     } catch {
       message = { protocolVersion: 1, id: request.id, ok: false, error: "extension_unavailable" };
     } finally {

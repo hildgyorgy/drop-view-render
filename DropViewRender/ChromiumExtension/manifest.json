@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Drop & View Render",
+  "version": "0.2.0",
+  "description": "Send Drop & View scenes to the native Cycles renderer.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq6clwWaL+zxSQibTyJB1zGuzWgxEyac4c610u/5Xy73SzOrqLwjhA2adqvKCzXufW0rwpl0K3u47J/rXgqu8puZWidvWu6MqMkXedBPVFA0b0A6AViQJhY9V4JPl9kXZvA1DUMrQ1trAq1v3xwxv88wrpFcuiN6m3PGP9s2aQpYz/JxX1rxbkBHyY6jZCsoJNF1HbzxqT2NKM3jUZjHmmyVTT8ZBR0l7SnT0Jh1LsgPipcZvhc+zS125Drq5FfbOLPehUmJYTbyiu0oT8zcArHumglPsiN69IpluZVLXWkEaQdNSvv7Oiz3HkBJtD2L5AEk5IAReNNv55R0vv5CpYQIDAQAB",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://hildgyorgy.github.io/drop-3d-view/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

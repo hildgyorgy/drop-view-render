@@ -13,9 +13,11 @@ final class SafariNativeRouter {
     static let operations: Set<String> = ["pair", "status", "disconnect", "job", "cancel", "reveal",
                                            "uploadBegin", "uploadChunk", "uploadFinish", "uploadAbort"]
     static let shared = SafariNativeRouter()
+    let transport: String
     let store: SafariUploadStore
     private let session: URLSession
-    init(store: SafariUploadStore = SafariUploadStore()) {
+    init(store: SafariUploadStore = SafariUploadStore(), transport: String = "safari-native-messaging") {
+        self.transport = transport
         self.store = store
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
@@ -59,7 +61,14 @@ final class SafariNativeRouter {
             let message = try SafariNativeMessage.envelope(value)
             id = message["id"] as! String
             let operation = message["operation"] as? String ?? ""
-            if operation == "ping" { return SafariNativeMessage.reply(to: message) }
+            if operation == "ping" {
+                var reply = SafariNativeMessage.reply(to: message)
+                if reply["ok"] as? Bool == true {
+                    reply["transport"] = transport
+                    if transport == "chromium-native-messaging" { reply["responder"] = "ChromiumNativeHost" }
+                }
+                return reply
+            }
             let url = URLComponents(string: message["pageURL"] as! String)!
             let port = url.port == (url.scheme == "https" ? 443 : 80) ? nil : url.port
             let origin = "\(url.scheme!)://\(url.host!)" + (port.map { ":\($0)" } ?? "")
@@ -113,7 +122,7 @@ final class SafariNativeRouter {
             default: throw SafariBridgeError("unsupported_operation")
             }
             return ["protocolVersion": 1, "id": id, "ok": true, "data": data,
-                    "transport": "safari-native-messaging"]
+                    "transport": transport]
         } catch {
             let failure = error as? SafariBridgeError ?? SafariBridgeError("native_storage_failed", 500)
             return ["protocolVersion": 1, "id": id, "ok": false, "error": failure.code, "status": failure.status]

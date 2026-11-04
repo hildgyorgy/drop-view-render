@@ -1,15 +1,17 @@
+<!-- Current common Chromium setup: see CHROMIUM_NATIVE_MESSAGING.md. -->
 # Safari Native Messaging prototype — chunked transfer and queue
 
-The render/export panel offers **HTTP** (the existing default) and **SAFARI
-EXTENSION**. Select a transport before CONNECT; disconnect to change it. There
-is no automatic fallback. The diagnostic TEST NATIVE CONNECTION ping remains
-available separately and does not prove the GUI app or Blender is running.
+CONNECT automatically detects Safari or Chrome/Edge and uses its extension.
+There is no transport selector, direct browser HTTP client or HTTP fallback.
+The diagnostic TEST NATIVE CONNECTION ping remains separate and does not prove
+that the GUI app or Blender is running. The user confirmed the Safari extension
+connection works on 2026-11-04.
 
 ## Message path and use
 
 1. Run the signed Drop & View Render app and enable its Safari extension for
    the chosen website. Reload the updated webapp.
-2. Open i → RENDER WITH BLENDER → EXPORT, select SAFARI EXTENSION, CONNECT,
+2. Open i → RENDER WITH BLENDER → EXPORT, CONNECT,
    and approve pairing in the native app. Then press RENDER.
 3. The web client slices the immutable `.dvrender` Blob into 64 KiB chunks.
    Content script → background → Safari Native Messaging delivers each chunk
@@ -24,7 +26,7 @@ available separately and does not prove the GUI app or Blender is running.
 
 This prototype deliberately reuses the native HTTP service; it is not an App
 Group/XPC implementation. The containing app and its listener must be running.
-The original browser HTTP transport remains usable independently.
+The native HTTP relay remains internal; the direct browser HTTP transport is retired.
 
 ## Protocol, memory and retry rules
 

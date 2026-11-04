@@ -96,7 +96,7 @@ test("missing extension times out, ignores spoofed replies and releases listener
   page.deliver({ source: {}, origin: page.location.origin,
     data: { channel: "drop-view-render:safari:response", message: { id: "wrong" } } });
   await assert.rejects(client.ping(), /already running/);
-  await assert.rejects(result, /No Safari extension response/);
+  await assert.rejects(result, /No browser extension response/);
   assert.equal(client.busy, false);
   assert.equal(page.listeners.size, 0);
 });
