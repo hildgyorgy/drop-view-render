@@ -131,7 +131,7 @@ class RenderProgress:
 
 def bridge_arguments() -> argparse.Namespace:
     arguments = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
-    parser = argparse.ArgumentParser(description="Render a GLB or .dvrender with Cycles/Metal")
+    parser = argparse.ArgumentParser(description="Render a GLB or .dvrender with Cycles")
     parser.add_argument("input", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--save-blend", type=Path,
@@ -144,6 +144,8 @@ def bridge_arguments() -> argparse.Namespace:
     parser.add_argument("--hide-hdri-background", action="store_true")
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
+    parser.add_argument("--device", choices=("AUTO", "CPU", "METAL", "OPTIX", "CUDA", "HIP", "ONEAPI"),
+                        default="AUTO", help="Cycles backend; AUTO keeps Metal on macOS and discovers Windows GPUs")
     parser.add_argument("--samples", type=int)
     parser.add_argument("--bounces", type=int)
     parser.add_argument("--transmission-bounces", type=int)
@@ -452,28 +454,42 @@ def import_model(model_path: Path) -> None:
     print(f"[Drop & View Cycles] Thin Wall materials configured: {converted}", flush=True)
 
 
-def enable_cycles_metal(scene: bpy.types.Scene) -> list[str]:
+def enable_cycles_device(scene: bpy.types.Scene, requested: str = "AUTO") -> list[str]:
     scene.render.engine = "CYCLES"
-    scene.cycles.device = "GPU"
     preferences = bpy.context.preferences.addons["cycles"].preferences
-    try:
-        preferences.compute_device_type = "METAL"
-        preferences.refresh_devices()
-    except (AttributeError, TypeError):
-        preferences.get_devices()
-
-    enabled = []
+    backends = (["METAL"] if sys.platform == "darwin" else ["OPTIX", "CUDA", "HIP", "ONEAPI"]) \
+        if requested == "AUTO" else ([] if requested == "CPU" else [requested])
+    labels = {"METAL": "Metal", "OPTIX": "NVIDIA OptiX", "CUDA": "NVIDIA CUDA",
+              "HIP": "AMD HIP", "ONEAPI": "Intel oneAPI"}
+    for backend in backends:
+        try:
+            preferences.compute_device_type = backend
+            try:
+                preferences.refresh_devices()
+            except AttributeError:
+                preferences.get_devices()
+        except (AttributeError, TypeError, RuntimeError):
+            continue
+        enabled = [device.name for device in preferences.devices if device.type == backend]
+        if enabled:
+            for device in preferences.devices:
+                device.use = device.type == backend
+            scene.cycles.device = "GPU"
+            print(f"[Drop & View Cycles] {labels[backend]} devices: {', '.join(enabled)}", flush=True)
+            return enabled
+    if requested not in ("AUTO", "CPU"):
+        raise RuntimeError(f"Requested Cycles backend {requested} has no available GPU")
     for device in preferences.devices:
-        use_device = device.type == "METAL"
-        device.use = use_device
-        if use_device:
-            enabled.append(device.name)
-    if not enabled:
-        scene.cycles.device = "CPU"
-        print("[Drop & View Cycles] No Metal device found; using CPU.")
-    else:
-        print(f"[Drop & View Cycles] Metal devices: {', '.join(enabled)}")
-    return enabled
+        device.use = False
+    scene.cycles.device = "CPU"
+    print("[Drop & View Cycles] CPU rendering" if requested == "CPU" else
+          "[Drop & View Cycles] No compatible GPU found; using CPU.", flush=True)
+    return []
+
+
+def enable_cycles_metal(scene: bpy.types.Scene) -> list[str]:
+    # Compatibility for callers of the original macOS-only entry point.
+    return enable_cycles_device(scene, "METAL")
 
 
 def mesh_bounds() -> tuple[Vector, Vector]:
@@ -936,7 +952,7 @@ def main() -> None:
 
         reset_scene()
         scene = bpy.context.scene
-        enable_cycles_metal(scene)
+        enable_cycles_device(scene, args.device)
         print(f"[Drop & View Cycles] Importing: {model_path}")
         import_model(model_path)
         imported_roots = [obj for obj in scene.objects if obj.parent is None]

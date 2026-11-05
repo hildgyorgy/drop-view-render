@@ -1,6 +1,6 @@
 # Drop & View Render — project handoff
 
-Updated: 2026-11-02
+Updated: 2026-11-04
 
 ## Purpose
 
@@ -179,6 +179,45 @@ retry/dedup and framed message tests. Chrome itself is absent on this Mac;
 Chrome live acceptance and public HTTPS deployment remain to verify.
 See `docs/CHROMIUM_NATIVE_MESSAGING.md` for packaging, limits and tests.
 
+## Windows tray prototype (2026-11-04)
+
+`windows/` now contains a .NET 10 WinForms NotifyIcon/ApplicationContext app
+(no main window), shared portable Core, Chromium stdio NativeHost, core tests,
+Windows-only native host/Job Object tests, PowerShell publish/registration and
+Inno Setup installer source. The common Chrome/Edge extension is copied from the
+same files as macOS. Safari and a Windows HTTP listener are not included.
+The user prefers a future macOS menu-bar/dropdown UI; the current SwiftUI window
+was intentionally not redesigned during this Windows implementation.
+
+The tray app owns a serial queue independently of browser-port lifetime.
+Native host communication uses bounded framed JSON over a current-user-only,
+per-logon-session named pipe. Native origin approval, in-memory credentials,
+checksummed 64 KiB chunks, replay/full digest idempotency, package limits,
+immutable Recommended settings, indexed output, cancel and reveal are implemented.
+The tray exposes readiness, output/Blender choice, cancel/disconnect, opt-in
+sign-in startup and quit. An app-lifetime Windows Job Object owns Blender children.
+Blender 5.2.3 LTS remains external; no Python or Blender runtime is vendored.
+
+Shared adapter `--device AUTO|CPU|METAL|OPTIX|CUDA|HIP|ONEAPI` now keeps Metal on
+macOS and tries OptiX/CUDA/HIP/oneAPI then a reported CPU fallback on Windows.
+Explicit unavailable GPU backends fail rather than silently changing device.
+No scene/material/camera/sample/bounce policy changed.
+
+Verified locally on macOS: all C# projects cross-build without warnings/errors;
+34 core checks (36 including an actual 64×48/1-sample test-fixture Cycles render);
+real named-pipe roundtrip; GPU policy unit checks; existing Blender quality and
+orthographic/package smoke; baseline/current real Metal CLI smoke; actual
+PowerShell publish produced self-contained Windows x64 PE executables and a ZIP.
+The first standalone ortho smoke hit a transient native Metal shader-cache
+exception; baseline/current CLI and the subsequent unchanged ortho smoke passed.
+
+`.github/workflows/windows.yml` is ready to run Windows core, real Win32 Job
+Object/published-host tests, publish and Inno Setup compilation/artifact upload.
+It has NOT been run remotely, and no Windows UI/installer/vendor-GPU acceptance
+is claimed. The prototype is unsigned. Windows 11 hardware testing and release
+signing/store publication remain. See `windows/README.md` for use/build/security
+limits; build products are ignored, no certificates or secrets committed.
+
 ## Current files
 
 - `DropViewRender.xcodeproj` — native macOS application project.
@@ -193,7 +232,7 @@ See `docs/CHROMIUM_NATIVE_MESSAGING.md` for packaging, limits and tests.
 - Product name: **Drop & View Render**.
 - Repository name: `drop-view-render`.
 - Final renderer: Blender/Cycles; Metal on Apple Silicon.
-- Distribution target: native SwiftUI macOS application first, Windows later.
+- Distribution: native SwiftUI macOS app plus a Windows 11 x64 tray prototype.
 - The native app owns a loopback-only browser bridge for approved renders.
   A Safari Native Messaging prototype now stages chunked uploads and relays
   them natively to that same queue; direct browser HTTP transport is retired. See `docs/BROWSER_BRIDGE.md`

@@ -10,3 +10,7 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 
+# Windows/.NET build products
+windows/**/bin/
+windows/**/obj/
+windows/artifacts/

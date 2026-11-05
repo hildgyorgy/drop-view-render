@@ -1,0 +1,39 @@
+name: Windows tray app
+on:
+  workflow_dispatch:
+  push:
+    paths: ['global.json', 'windows/**', 'DropViewRender/Resources/**', 'DropViewRender/ChromiumExtension/**', 'DropViewRender/SafariExtension/Resources/**', '.github/workflows/windows.yml']
+  pull_request:
+    paths: ['global.json', 'windows/**', 'DropViewRender/Resources/**', 'DropViewRender/ChromiumExtension/**', 'DropViewRender/SafariExtension/Resources/**', '.github/workflows/windows.yml']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Core and named-pipe tests
+        run: dotnet run --project windows/Tests/DropViewRender.Tests.csproj -c Release
+      - name: Build tray, native host and portable bundle
+        shell: pwsh
+        run: ./windows/publish.ps1
+      - name: Windows native host and process ownership tests
+        run: dotnet run --project windows/WindowsTests/DropViewRender.WindowsTests.csproj -c Release -- windows/artifacts/win-x64
+      - name: Package per-user installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $compiler)) { throw 'Inno Setup 6 is required on the Windows runner.' }
+          & $compiler windows/installer/DropViewRender.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DropViewRender-Windows-x64
+          path: |
+            windows/artifacts/*Setup.exe
+            windows/artifacts/*.zip
+          if-no-files-found: error

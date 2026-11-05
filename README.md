@@ -86,7 +86,7 @@ Images are saved to **Downloads / Drop & View Render**, with automatic numbered
 filenames preserving existing images. The native Browser Bridge menu revokes
 connections. **SAVE PACKAGE** and the manual native workflow remain available.
 See [the bridge contract](docs/BROWSER_BRIDGE.md) for limits, tests and browser
-compatibility. Windows support is not part of this change.
+compatibility. A Windows tray prototype is now included; see below.
 
 ## Browser extensions
 
@@ -111,6 +111,22 @@ Chrome is not installed on the test Mac, so a separate live Chrome check remains
 
 Details: [Chrome / Edge setup](docs/CHROMIUM_NATIVE_MESSAGING.md),
 [Safari setup and shared upload protocol](docs/SAFARI_NATIVE_MESSAGING.md).
+
+## Windows tray prototype
+
+The `windows/` folder contains a Windows 11 x64 background companion with a tray
+icon and no main window. Chrome/Edge and the webapp supply scene/queue controls.
+The tray provides status, Blender/output selection, cancellation, browser revoke,
+optional sign-in startup and Quit. It uses the same `.dvrender` v1 and Blender
+adapter, with NVIDIA OptiX/CUDA, AMD HIP, Intel oneAPI discovery and CPU fallback.
+Blender 5.2.3 LTS stays an external prerequisite. No Safari component is needed.
+
+A self-contained .NET 10 Windows bundle can be cross-built on this Mac. Installer
+source and a Windows GitHub Actions build/test/package workflow are included.
+The shared core and actual Cycles queue were tested locally; Windows tray/UI,
+installer and vendor GPU acceptance still require Windows 11. Prototype builds
+are unsigned; no remote CI run or release publication is implied.
+See [Windows setup/build instructions](windows/README.md).
 
 ## View in Blender
 
@@ -155,6 +171,7 @@ Optional arguments after `--`:
 --hide-hdri-background
 --width 1920 --height 1080
 --samples 500
+--device AUTO
 --bounces 6 --transmission-bounces 10
 --denoise / --no-denoise
 --adaptive-sampling / --no-adaptive-sampling
@@ -187,8 +204,8 @@ The production application is a native SwiftUI macOS app with:
 - Developer ID signing and notarization;
 - no visible Terminal or separate Python installation.
 
-Blender's bundled Python will execute a small `bpy` adapter. A Windows client
-can follow later while preserving the same `.dvrender` contract.
+Blender's bundled Python will execute a small `bpy` adapter. The Windows tray prototype
+preserves the same `.dvrender` contract.
 
 See [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) for the current engineering state
 and [docs/DVRENDER_FORMAT.md](docs/DVRENDER_FORMAT.md) for the package contract.
