@@ -28,7 +28,7 @@ struct BrowserRenderSmoke {
         bridge.outputDirectory = root
         bridge.approvePairing = { _, finish in finish(true) }
         bridge.rendererStatus = { ["blenderAvailable": model.blender.executableURL != nil, "rendering": model.isRendering] }
-        bridge.submitJob = { try model.acceptBrowserJob(at: $0, manifest: $1, outputDirectory: $2) }
+        bridge.submitJob = { try model.acceptBrowserJob(at: $0, manifest: $1, outputDirectory: $2, denoise: $3, adaptive: $4) }
         bridge.jobStatus = { model.browserJobStatus($0) }
         bridge.cancelJob = { model.cancelBrowserJob($0) }
         bridge.start()

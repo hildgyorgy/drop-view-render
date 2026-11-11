@@ -74,10 +74,13 @@ at the same aspect keeps the frame; changing aspect preserves vertical coverage.
 
 ## Render directly from the browser
 
-Run this app, then choose **i → RENDER WITH BLENDER → EXPORT → CONNECT** in the updated Drop & View
+Run this app, then choose **i → RENDER WITH BLENDER → RENDER → CONNECT** in the updated Drop & View
 web app and approve the connection. **RENDER** sends the current scene directly
-to Cycles using Recommended quality, keeping its dimensions, sample maximum and
-bounce limits. The browser shows progress/time, **CANCEL**, and **SHOW IN FOLDER**
+to Cycles, keeping its dimensions, sample maximum and bounce limits. DENOISE and
+ADAPTIVE are ON by default and can be independently switched off with updated
+native/extension builds. Adaptive sampling uses threshold 0.03; OFF uses fixed
+sampling. Each job keeps its submitted settings even if controls later change.
+The browser shows progress/time, **CANCEL**, and **SHOW IN FOLDER**
 when finished. While rendering, compose another camera and press **RENDER** to
 queue another snapshot. The job selector keeps earlier renders accessible. Other
 queued native jobs are not started by a browser submission.
@@ -111,6 +114,14 @@ Chrome is not installed on the test Mac, so a separate live Chrome check remains
 
 Details: [Chrome / Edge setup](docs/CHROMIUM_NATIVE_MESSAGING.md),
 [Safari setup and shared upload protocol](docs/SAFARI_NATIVE_MESSAGING.md).
+
+## macOS release preparation
+
+Developer ID signing, notarization, DMG packaging and GitHub Release commands
+are documented in [the release guide](docs/MACOS_RELEASE.md). The local pipeline
+checks app/extension/helper signatures and matching versions before distribution.
+[Installation instructions](docs/MACOS_INSTALL.md) describe the final Safari flow.
+This preparation alone is not a published/notarized release.
 
 ## Windows tray prototype
 

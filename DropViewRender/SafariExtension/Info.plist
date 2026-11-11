@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key><string>Drop &amp; View Render — Safari Prototype</string>
+    <key>CFBundleDisplayName</key><string>Drop &amp; View Render</string>
     <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -11,7 +11,7 @@
     <key>CFBundlePackageType</key><string>XPC!</string>
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-    <key>NSHumanReadableDescription</key><string>Test the Drop &amp; View Render native message connection.</string>
+    <key>NSHumanReadableDescription</key><string>Send Drop &amp; View scenes to Blender/Cycles through the native companion.</string>
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionPointIdentifier</key><string>com.apple.Safari.web-extension</string>

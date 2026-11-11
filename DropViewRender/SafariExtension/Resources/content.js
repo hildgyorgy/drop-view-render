@@ -24,6 +24,12 @@
       }
     }
     if (request.operation === "ping" && typeof copy.text !== "string") return;
+    if (request.operation === "uploadBegin") for (const key of ["denoise", "adaptive"]) {
+      if (request[key] !== undefined) {
+        if (typeof request[key] !== "boolean") return;
+        copy[key] = request[key];
+      }
+    }
     for (const key of ["offset", "totalBytes"]) if (request[key] !== undefined) {
       if (!Number.isSafeInteger(request[key]) || request[key] < 0 || request[key] > 2 ** 31) return;
       copy[key] = request[key];

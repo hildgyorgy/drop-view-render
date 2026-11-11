@@ -17,7 +17,7 @@ struct SafariTransferSmoke {
         bridge.approvePairing = { _, finish in finish(true) }
         bridge.outputDirectory = root.appendingPathComponent("output")
         bridge.rendererStatus = { ["blenderAvailable": model.blender.executableURL != nil, "rendering": model.isRendering] }
-        bridge.submitJob = { url, manifest, output in try model.acceptBrowserJob(at: url, manifest: manifest, outputDirectory: output) }
+        bridge.submitJob = { try model.acceptBrowserJob(at: $0, manifest: $1, outputDirectory: $2, denoise: $3, adaptive: $4) }
         bridge.jobStatus = { model.browserJobStatus($0) }
         bridge.cancelJob = { model.cancelBrowserJob($0) }
         bridge.start()
@@ -100,8 +100,10 @@ struct SafariTransferSmoke {
         try output.close()
         let total = Int64((try fixture.resourceValues(forKeys: [.fileSizeKey])).fileSize!)
         let key = UUID().uuidString
-        func upload(_ key: String) async throws -> String {
-            let begin = try await request("uploadBegin", ["key": key, "totalBytes": total])
+        func upload(_ key: String, denoise: Bool = true, adaptive: Bool = true) async throws -> String {
+            let countBefore = model.jobs.count
+            let begin = try await request("uploadBegin", ["key": key, "totalBytes": total,
+                                                         "denoise": denoise, "adaptive": adaptive])
             let id = begin["uploadID"] as! String
             let input = try FileHandle(forReadingFrom: fixture)
             defer { try? input.close() }
@@ -117,7 +119,7 @@ struct SafariTransferSmoke {
                 }
                 offset += Int64(chunk.count)
                 precondition((ack["offset"] as! NSNumber).int64Value == offset)
-                precondition(model.jobs.isEmpty || model.jobs.count == 1, "No job before commit")
+                precondition(model.jobs.count == countBefore, "No job before commit")
             }
             let accepted = try await request("uploadFinish", ["uploadID": id])
             let duplicate = try await request("uploadFinish", ["uploadID": id])
@@ -140,7 +142,21 @@ struct SafariTransferSmoke {
         let png = model.jobs[0].outputURL
         let pngSize = try png.resourceValues(forKeys: [.fileSizeKey]).fileSize!
         precondition(pngSize > 0)
+        precondition(model.jobs[0].lastRunSettings?.denoise == true && model.jobs[0].lastRunSettings?.adaptive == true)
+        for (denoise, adaptive) in [(false, true), (true, false), (false, false)] {
+            let jobID = try await upload(UUID().uuidString, denoise: denoise, adaptive: adaptive)
+            let deadline = ContinuousClock.now + .seconds(90)
+            while ContinuousClock.now < deadline {
+                let state = try await request("job", ["jobID": jobID])["state"] as? String
+                if ["finished", "failed", "cancelled"].contains(state ?? "") { break }
+                try await Task.sleep(for: .milliseconds(200))
+            }
+            let job = model.jobs.last!
+            precondition(job.state == .finished, job.log)
+            precondition(job.lastRunSettings?.denoise == denoise && job.lastRunSettings?.adaptive == adaptive)
+            precondition(job.lastRunSettings?.samples == 1 && job.lastRunSettings?.bounces == 6 && job.lastRunSettings?.transmissionBounces == 10)
+        }
         _ = try await request("disconnect")
-        print("PASS: chunked Native Messaging router -> authenticated HTTP -> real Cycles queue, status, duplicate ACK/commit/full retry, PNG")
+        print("PASS: chunked Native Messaging -> HTTP -> real Cycles, all four denoise/adaptive combinations, preserved scene targets, duplicate ACK/commit/full retry, PNG")
     }
 }

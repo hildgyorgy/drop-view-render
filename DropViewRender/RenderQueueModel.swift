@@ -347,9 +347,13 @@ final class RenderQueueModel: ObservableObject {
     }
 
     /// Browser submissions run serially without starting unrelated local jobs.
-    func acceptBrowserJob(at url: URL, manifest: DVRenderManifest, outputDirectory: URL) throws -> UUID {
+    func acceptBrowserJob(at url: URL, manifest: DVRenderManifest, outputDirectory: URL,
+                          denoise: Bool = true, adaptive: Bool = true) throws -> UUID {
         guard blender.executableURL != nil else { throw RenderOutputError.blenderUnavailable }
         var job = RenderJob(inputURL: url, manifest: manifest)
+        job.qualityProfile = denoise && adaptive ? .recommended : .custom
+        job.usesDenoising = denoise
+        job.usesAdaptiveSampling = adaptive
         let stem = URL(fileURLWithPath: manifest.fileName).deletingPathExtension().lastPathComponent
         job.displayName = "\(stem).dvrender"
         job.outputURL = outputDirectory.appendingPathComponent("\(stem)-cycles.png")

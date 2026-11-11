@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 /// Native-side relay to the existing queue service. Safari itself never fetches
 /// localhost on this transport. URL/method/header choices are fixed here.
@@ -28,7 +29,7 @@ final class SafariNativeRouter {
     }
 
     private func relay(_ path: String, method: String = "GET", origin: String, token: String?,
-                       file: URL? = nil, key: String? = nil) async throws -> [String: Any] {
+                       file: URL? = nil, key: String? = nil, denoise: Bool = true, adaptive: Bool = true) async throws -> [String: Any] {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:43127/v1/" + path)!)
         request.httpMethod = method
         request.timeoutInterval = file != nil ? 590 : (path == "pair" && method == "POST" ? 115 : 8)
@@ -41,7 +42,9 @@ final class SafariNativeRouter {
                 request.setValue(String(size), forHTTPHeaderField: "Content-Length")
                 request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
                 request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
-                request.setValue("{\"version\":1,\"profile\":\"recommended\"}", forHTTPHeaderField: "X-DVR-Settings")
+                let settings = try JSONSerialization.data(withJSONObject: ["version": 1, "profile": "recommended",
+                                                                           "denoise": denoise, "adaptive": adaptive])
+                request.setValue(String(decoding: settings, as: UTF8.self), forHTTPHeaderField: "X-DVR-Settings")
                 result = try await session.upload(for: request, fromFile: file)
             } else { result = try await session.data(for: request) }
         } catch { throw SafariBridgeError("native_app_unavailable", 503) }
@@ -94,7 +97,14 @@ final class SafariNativeRouter {
                 _ = try await relay("status", origin: origin, token: token)
                 guard let key = message["key"] as? String,
                       let total = SafariNativeMessage.integer(message["totalBytes"]) else { throw SafariBridgeError("invalid_submission") }
-                data = try store.begin(owner: owner, key: key, total: total)
+                func flag(_ name: String) throws -> Bool {
+                    guard let value = message[name] else { return true }
+                    guard let number = value as? NSNumber,
+                          CFGetTypeID(number) == CFBooleanGetTypeID() else { throw SafariBridgeError("invalid_submission") }
+                    return number.boolValue
+                }
+                data = try store.begin(owner: owner, key: key, total: total,
+                                       denoise: flag("denoise"), adaptive: flag("adaptive"))
             case "uploadChunk":
                 guard let upload = message["uploadID"] as? String,
                       let offset = SafariNativeMessage.integer(message["offset"]),
@@ -108,7 +118,8 @@ final class SafariNativeRouter {
                 if let jobID = try store.acceptedJob(id: upload, owner: owner) { data = ["id": jobID]; break }
                 let commit = try store.prepareCommit(id: upload, owner: owner)
                 do {
-                    data = try await relay("jobs", method: "POST", origin: origin, token: token, file: commit.url, key: commit.key)
+                    data = try await relay("jobs", method: "POST", origin: origin, token: token,
+                                           file: commit.url, key: commit.key, denoise: commit.denoise, adaptive: commit.adaptive)
                     guard let jobID = data["id"] as? String, UUID(uuidString: jobID) != nil else { throw SafariBridgeError("invalid_native_response", 502) }
                     try store.complete(id: upload, owner: owner, lease: commit.lease, jobID: jobID)
                 } catch {

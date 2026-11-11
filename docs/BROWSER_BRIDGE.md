@@ -22,8 +22,12 @@ versioned independently of the unchanged `.dvrender` v1 package.
    `~/Downloads/Drop & View Render/<model>-cycles.png`; collisions use the next
    free `-001`, `-002`, … filename. Old images are preserved.
 
-Web submissions use Recommended quality: source dimensions, sample maximum and
-bounce limits, adaptive sampling at 0.03 and OIDN denoise. No global/native job
+Web submissions default to Recommended quality: source dimensions, sample maximum and
+bounce limits, adaptive sampling at 0.03 and OIDN denoise. Optional boolean
+`denoise` and `adaptive` submission settings override those two policies only;
+omitted flags retain ON/ON. OFF selects a Custom per-job snapshot without changing
+source dimensions/counts. Settings are included in idempotency comparisons.
+No global/native job
 preferences are changed. The native app serializes browser submissions: compose another camera while a
 render runs and press RENDER again to queue a new immutable snapshot. It starts
 after the current render/previous browser submissions finish, without starting
@@ -69,8 +73,9 @@ running as the same local user.
 - `POST /v1/jobs`: authenticated, fixed `Content-Length`,
   `Content-Type: application/octet-stream`; body is the original `.dvrender`
   Blob. Required `Idempotency-Key` is a UUID and `X-DVR-Settings` is JSON
-  `{"version":1,"profile":"recommended"}`. Unknown settings are rejected;
-  custom overrides are not supported in this version. This small separate
+  `{"version":1,"profile":"recommended","denoise":true,"adaptive":true}`.
+  Both boolean flags are optional (default true); unknown keys and non-booleans are rejected.
+  The status advertises `quality-controls`. This small separate
   envelope avoids multipart buffering and does not change the scene format.
   Returns **202 `{id}` only after complete upload, package validation and native
   job creation/queueing**. A render can subsequently fail; 202 is not completion.

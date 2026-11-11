@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Drop & View Render — Safari Prototype",
-  "description": "Test Native Messaging with the Drop & View Render companion.",
+  "name": "Drop & View Render",
+  "description": "Render Drop & View scenes with the native Blender/Cycles companion.",
   "version": "0.1.0",
   "permissions": ["nativeMessaging"],
   "background": { "scripts": ["background.js"], "type": "module", "persistent": false },

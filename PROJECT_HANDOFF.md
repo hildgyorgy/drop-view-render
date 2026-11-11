@@ -1,6 +1,6 @@
 # Drop & View Render — project handoff
 
-Updated: 2026-11-04
+Updated: 2026-11-11
 
 ## Purpose
 
@@ -73,6 +73,28 @@ averaged 484/500 samples, giving only about 3.2% sample savings. Full-resolution
 an exterior completed in 43 seconds. CLI default threshold remains 0.01.
 
 ## Browser render milestone (2026-11-02)
+
+### Web quality switches (2026-11-11)
+
+The web RENDER panel now exposes independent DENOISE and ADAPTIVE switches,
+both ON by default. `uploadBegin` accepts optional strict boolean `denoise` /
+`adaptive` fields, frozen into the durable upload record and relayed through
+`X-DVR-Settings` with the existing `recommended` envelope. The HTTP bridge
+passes both policies to the queue; OFF selects Custom with source resolution,
+sample/bounce targets and 0.03 adaptive threshold preserved. Omitted fields
+retain ON/ON. Quality flags participate in staging and HTTP idempotency checks.
+Both extension discovery and native status advertise `quality-controls`; the
+web requires both to allow OFF, avoiding silent downgrade on older installs.
+Safari and the shared Chromium extension use the same updated protocol. Windows
+does not advertise this capability yet and retains its ON/ON defaults.
+
+Verified: unsigned Xcode app/extension/helper build, upload-store smoke including
+quality conflicts, five Safari protocol/Swift tests, three Chromium helper tests,
+and a real four-job Cycles smoke through the Native Messaging router and HTTP
+queue covering ON/ON, OFF/ON, ON/OFF and OFF/OFF. Web checks: 153 unit tests and
+the two package UI smoke tests. Updated app/extension builds must be installed
+and browser pages reloaded before live OFF controls are supported. No installed
+app replacement, signing, release, commit or publication was performed.
 
 The app automatically listens on `127.0.0.1:43127`; the web FILE → EXPORT
 CONNECT action requests native approval, then polls origin-bound authenticated
@@ -217,6 +239,36 @@ It has NOT been run remotely, and no Windows UI/installer/vendor-GPU acceptance
 is claimed. The prototype is unsigned. Windows 11 hardware testing and release
 signing/store publication remain. See `windows/README.md` for use/build/security
 limits; build products are ignored, no certificates or secrets committed.
+
+## macOS release preparation (2026-11-11)
+
+Initial Git audit: native HEAD `670cd30` had 14 modified tracked files (web
+quality relay and tests/docs); web HEAD `74c9f83` had a clean worktree and was
+already on origin/main. The public HTTPS WebGL bundle exactly matched the local
+bundle (SHA-256 `677d56233bffc01f664d866a7ee394a8772bbf62b41ead0a6880705bd788ad45`).
+Thus the web controls were already published, contrary to the starting assumption.
+
+`tools/macos_release.py` now prepares Apple Silicon Release builds, stamps app /
+Safari / Chromium versions, explicitly signs extension/helper/app inside-out,
+checks same Developer ID team, secure timestamp, hardened runtime and no debug
+entitlement, notarizes/staples app then signed DMG, verifies Gatekeeper/checksums
+and publishes with GitHub CLI only from matching clean source provenance.
+App Info.plist version fields now use Xcode build settings; Safari product
+wording no longer says Prototype. Development signing defaults are preserved.
+See `docs/MACOS_RELEASE.md` and `docs/MACOS_INSTALL.md`.
+
+Verified this turn: unsigned Release builds (0.3.0 / 3 and 4), matching app/extension
+and browser manifest versions; native handler/store smokes; 8 Safari/Chromium JS/helper tests; 153 web
+unit tests; real router → native HTTP → Cycles four-combination DENOISE/ADAPTIVE
+smoke with unchanged test scene targets/retry dedup. This is not live Safari
+release acceptance. A pre-existing macOS 27 loadItem deprecation warning remains.
+
+Release is pending: login Keychain has Apple Development and Apple Distribution
+identities, but no Developer ID Application identity. User was asked to create
+that certificate in Xcode. Notarytool Keychain credentials and GitHub CLI release
+access must be validated at their steps. No public Release, signed/notarized DMG,
+installed app replacement or GitHub-download acceptance has been performed yet.
+Current source edits remain uncommitted until release prerequisites are resolved.
 
 ## Current files
 

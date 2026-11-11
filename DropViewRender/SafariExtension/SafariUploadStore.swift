@@ -19,6 +19,8 @@ final class SafariUploadStore {
         var owner: String
         var key: String
         var total: Int64
+        var denoise: Bool?
+        var adaptive: Bool?
         var received: Int64 = 0
         var touched = Date()
         var lease: String?
@@ -29,6 +31,8 @@ final class SafariUploadStore {
         let url: URL
         let lease: String
         let key: String
+        let denoise: Bool
+        let adaptive: Bool
     }
 
     init(root: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -77,7 +81,7 @@ final class SafariUploadStore {
             }
     }
 
-    func begin(owner: String, key: String, total: Int64) throws -> [String: Any] {
+    func begin(owner: String, key: String, total: Int64, denoise: Bool = true, adaptive: Bool = true) throws -> [String: Any] {
         try locked {
             guard UUID(uuidString: key) != nil, (24...Self.maximumBytes).contains(total) else {
                 throw SafariBridgeError("invalid_package_size")
@@ -86,7 +90,8 @@ final class SafariUploadStore {
                 remove(record)
             }
             let current = try records()
-            if current.contains(where: { $0.owner == owner && $0.key == key && $0.total != total }) {
+            if current.contains(where: { $0.owner == owner && $0.key == key &&
+                ($0.total != total || ($0.denoise ?? true) != denoise || ($0.adaptive ?? true) != adaptive) }) {
                 throw SafariBridgeError("idempotency_conflict", 409)
             }
             if var previous = current.first(where: { $0.owner == owner && $0.key == key && $0.jobID == nil }) {
@@ -102,7 +107,7 @@ final class SafariUploadStore {
             guard active.reduce(Int64(0), { $0 + $1.total }) + total <= 4 * 1024 * 1024 * 1024 else {
                 throw SafariBridgeError("upload_storage_full", 413)
             }
-            let record = Record(id: UUID().uuidString, owner: owner, key: key, total: total)
+            let record = Record(id: UUID().uuidString, owner: owner, key: key, total: total, denoise: denoise, adaptive: adaptive)
             guard FileManager.default.createFile(atPath: payload(record.id).path, contents: nil,
                                                   attributes: [.posixPermissions: 0o600]) else {
                 throw SafariBridgeError("upload_storage_failed", 500)
@@ -162,7 +167,8 @@ final class SafariUploadStore {
             record.leaseUntil = Date().addingTimeInterval(600)
             record.touched = Date()
             try save(record)
-            return Commit(url: payload(id), lease: lease, key: record.key)
+            return Commit(url: payload(id), lease: lease, key: record.key,
+                          denoise: record.denoise ?? true, adaptive: record.adaptive ?? true)
         }
     }
 

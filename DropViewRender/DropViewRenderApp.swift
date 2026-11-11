@@ -38,9 +38,10 @@ struct DropViewRenderApp: App {
                         ["blenderAvailable": queueModel?.blender.executableURL != nil,
                          "rendering": queueModel?.isRendering ?? false]
                     }
-                    bridge.submitJob = { [weak queueModel = model] url, manifest, destination in
+                    bridge.submitJob = { [weak queueModel = model] url, manifest, destination, denoise, adaptive in
                         guard let queueModel else { throw CocoaError(.userCancelled) }
-                        return try queueModel.acceptBrowserJob(at: url, manifest: manifest, outputDirectory: destination)
+                        return try queueModel.acceptBrowserJob(at: url, manifest: manifest, outputDirectory: destination,
+                                                               denoise: denoise, adaptive: adaptive)
                     }
                     bridge.jobStatus = { [weak queueModel = model] in queueModel?.browserJobStatus($0) }
                     bridge.cancelJob = { [weak queueModel = model] in queueModel?.cancelBrowserJob($0) ?? false }

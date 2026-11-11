@@ -30,6 +30,7 @@ struct SafariUploadStoreSmoke {
         expect("chunk_conflict") { _ = try store.append(id: id, owner: owner, offset: 0, base64: changed.base64EncodedString(), digest: changedHash) }
         _ = try store.append(id: id, owner: owner, offset: 65536, base64: chunk.base64EncodedString(), digest: hash)
         let commit = try store.prepareCommit(id: id, owner: owner)
+        precondition(commit.denoise && commit.adaptive)
         expect("upload_committing") { try store.abort(id: id, owner: owner) }
         expect("upload_committing") { _ = try store.prepareCommit(id: id, owner: owner) }
         try store.complete(id: id, owner: owner, lease: commit.lease, jobID: nil)
@@ -43,6 +44,16 @@ struct SafariUploadStoreSmoke {
         try store.abort(id: next["uploadID"] as! String, owner: owner)
         expect("invalid_package_size") { _ = try store.begin(owner: owner, key: UUID().uuidString, total: SafariUploadStore.maximumBytes + 1) }
         expect("invalid_upload_id") { try store.abort(id: "../escape", owner: owner) }
+        let customKey = UUID().uuidString
+        let custom = try store.begin(owner: owner, key: customKey, total: Int64(chunk.count), denoise: false, adaptive: false)
+        expect("idempotency_conflict") {
+            _ = try store.begin(owner: owner, key: customKey, total: Int64(chunk.count), denoise: true, adaptive: false)
+        }
+        let customID = custom["uploadID"] as! String
+        _ = try store.append(id: customID, owner: owner, offset: 0, base64: chunk.base64EncodedString(), digest: hash)
+        let customCommit = try store.prepareCommit(id: customID, owner: owner)
+        precondition(!customCommit.denoise && !customCommit.adaptive)
+        try store.complete(id: customID, owner: owner, lease: customCommit.lease, jobID: UUID().uuidString)
         if CommandLine.arguments.contains("--stress") {
             let count = 4096 // 256 MiB streamed with one reusable 64 KiB source.
             let big = try store.begin(owner: owner, key: UUID().uuidString, total: Int64(count * chunk.count))

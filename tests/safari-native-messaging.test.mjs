@@ -4,12 +4,21 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
-import { allowedPage, handleMessage, NATIVE_APP } from "../DropViewRender/SafariExtension/Resources/protocol.js";
+import { allowedPage, handleMessage, NATIVE_APP, sanitizeRequest } from "../DropViewRender/SafariExtension/Resources/protocol.js";
 import { SafariRenderBridgeClient } from "../../drop-3d-view/js/core/safari-render-bridge.js";
 
 const content = readFileSync(new URL("../DropViewRender/SafariExtension/Resources/content.js", import.meta.url), "utf8");
 const sender = { tab: { id: 1 }, frameId: 0, url: "http://127.0.0.1:4173/" };
 const ping = () => ({ protocolVersion: 1, operation: "ping", id: webcrypto.randomUUID(), text: "Árvíztűrő 🪟" });
+
+test("quality flags survive extension sanitization and reject non-boolean input", () => {
+  const request = { protocolVersion: 1, operation: "uploadBegin", id: webcrypto.randomUUID(),
+    key: webcrypto.randomUUID(), token: "a".repeat(72), totalBytes: 24, denoise: false, adaptive: true };
+  assert.equal(sanitizeRequest(request).denoise, false);
+  assert.equal(sanitizeRequest(request).adaptive, true);
+  assert.equal(sanitizeRequest({ ...request, denoise: "false" }), null);
+  assert.equal(sanitizeRequest({ ...request, adaptive: 0 }), null);
+});
 
 function native(app, request) {
   assert.equal(app, NATIVE_APP);

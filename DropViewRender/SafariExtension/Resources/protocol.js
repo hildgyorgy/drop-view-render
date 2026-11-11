@@ -33,9 +33,15 @@ export function sanitizeRequest(value) {
   if (["status", "disconnect"].includes(operation)) return request;
   if (["job", "cancel", "reveal"].includes(operation))
     return uuid(value.jobID) ? { ...request, jobID: value.jobID } : null;
-  if (operation === "uploadBegin")
-    return uuid(value.key) && Number.isSafeInteger(value.totalBytes) && value.totalBytes >= 24 && value.totalBytes <= 2 ** 31
-      ? { ...request, key: value.key, totalBytes: value.totalBytes } : null;
+  if (operation === "uploadBegin") {
+    if (!uuid(value.key) || !Number.isSafeInteger(value.totalBytes) || value.totalBytes < 24 || value.totalBytes > 2 ** 31)
+      return null;
+    for (const flag of ["denoise", "adaptive"]) if (value[flag] !== undefined) {
+      if (typeof value[flag] !== "boolean") return null;
+      request[flag] = value[flag];
+    }
+    return { ...request, key: value.key, totalBytes: value.totalBytes };
+  }
   if (!uuid(value.uploadID)) return null;
   request.uploadID = value.uploadID;
   if (["uploadFinish", "uploadAbort"].includes(operation)) return request;
@@ -55,7 +61,7 @@ export async function handleMessage(message, sender, sendNative, transport = "sa
   const request = sanitizeRequest(message);
   if (!request) return failure(uuid(message?.id) ? message.id : "", "invalid_message");
   if (request.operation === "discover") return { protocolVersion: 1, id: request.id, ok: true,
-    transport, data: { transport, capabilities: ["chunked-upload", "jobs"] } };
+    transport, data: { transport, capabilities: ["chunked-upload", "jobs", "quality-controls"] } };
   request.pageURL = sender.url;
   try {
     const result = await sendNative(NATIVE_APP, request);

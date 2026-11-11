@@ -10,7 +10,7 @@ final class BrowserBridge: ObservableObject {
     @Published private(set) var status = "Starting browser bridge…"
     @Published private(set) var connectedOrigins: [String] = []
     var rendererStatus: () -> [String: Any] = { [:] }
-    var submitJob: ((URL, DVRenderManifest, URL) throws -> UUID)?
+    var submitJob: ((URL, DVRenderManifest, URL, Bool, Bool) throws -> UUID)?
     var jobStatus: ((UUID) -> [String: Any]?)?
     var cancelJob: ((UUID) -> Bool)?
     var revealJob: ((UUID) -> Bool)?
@@ -23,11 +23,18 @@ final class BrowserBridge: ObservableObject {
         let key: String
         let digest: String
         let jobID: UUID
+        let denoise: Bool
+        let adaptive: Bool
     }
     private var submissions: [Submission] = []
     private var uploadClientID: UUID?
     private var retainedBytes: UInt64 = 0
-    private struct UploadSettings: Decodable { let version: Int; let profile: String }
+    private struct UploadSettings: Decodable {
+        let version: Int
+        let profile: String
+        let denoise: Bool?
+        let adaptive: Bool?
+    }
     var approvePairing: ((String, @escaping (Bool) -> Void) -> Void)?
 
     private var listener: NWListener?
@@ -47,6 +54,8 @@ final class BrowserBridge: ObservableObject {
         var origin = ""
         var token = ""
         var key = ""
+        var denoise = true
+        var adaptive = true
         var digest = SHA256()
         var processing = false
         init(_ connection: NWConnection) { self.connection = connection }
@@ -261,7 +270,7 @@ final class BrowserBridge: ObservableObject {
         result["app"] = "Drop & View Render"
         result["protocolVersion"] = 1
         result["appVersion"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development"
-        result["capabilities"] = ["status", "jobs", "cancel", "reveal"]
+        result["capabilities"] = ["status", "jobs", "cancel", "reveal", "quality-controls"]
         reply(id, code: 200, origin: origin, object: result)
     }
 
@@ -277,7 +286,7 @@ final class BrowserBridge: ObservableObject {
               let key = headers["idempotency-key"], UUID(uuidString: key) != nil,
               let settings = headers["x-dvr-settings"], settings.utf8.count <= 1024,
               let values = try? JSONSerialization.jsonObject(with: Data(settings.utf8)) as? [String: Any],
-              Set(values.keys) == ["version", "profile"],
+              Set(values.keys).isSubset(of: ["version", "profile", "denoise", "adaptive"]),
               let decoded = try? JSONDecoder().decode(UploadSettings.self, from: Data(settings.utf8)),
               decoded.version == 1, decoded.profile == "recommended" else {
             reply(id, code: 400, origin: origin, object: ["error": "invalid_submission"]); return
@@ -311,6 +320,8 @@ final class BrowserBridge: ObservableObject {
             client.origin = origin
             client.token = token
             client.key = key
+            client.denoise = decoded.denoise ?? true
+            client.adaptive = decoded.adaptive ?? true
             client.bytes.removeAll()
             uploadClientID = id
             client.timer?.invalidate()
@@ -340,7 +351,8 @@ final class BrowserBridge: ObservableObject {
             }
             let digest = client.digest.finalize().map { String(format: "%02x", $0) }.joined()
             if let previous = submissions.first(where: { $0.origin == client.origin && $0.key == client.key }) {
-                guard previous.digest == digest else {
+                guard previous.digest == digest, previous.denoise == client.denoise,
+                      previous.adaptive == client.adaptive else {
                     reply(id, code: 409, origin: client.origin, object: ["error": "idempotency_conflict"]); return
                 }
                 reply(id, code: 202, origin: client.origin, object: ["id": previous.jobID.uuidString]); return
@@ -356,8 +368,9 @@ final class BrowserBridge: ObservableObject {
             let package = partial.deletingPathExtension().appendingPathExtension("dvrender")
             try FileManager.default.moveItem(at: partial, to: package)
             client.uploadURL = package
-            let jobID = try submitJob(package, manifest, outputDirectory)
-            submissions.append(Submission(origin: client.origin, key: client.key, digest: digest, jobID: jobID))
+            let jobID = try submitJob(package, manifest, outputDirectory, client.denoise, client.adaptive)
+            submissions.append(Submission(origin: client.origin, key: client.key, digest: digest, jobID: jobID,
+                                          denoise: client.denoise, adaptive: client.adaptive))
             retainedBytes += UInt64((try? package.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
             client.uploadURL = nil // retained for native rerenders until the app quits
             reply(id, code: 202, origin: client.origin, object: ["id": jobID.uuidString])
