@@ -6,7 +6,8 @@ and production Blender adapter as macOS. Safari is not included.
 
 ## User workflow
 
-1. Install stable Blender **5.2.3 LTS** (or a later 5.2 maintenance release).
+1. Install stable Blender **5.3.0** (or a later 5.3 maintenance release).
+   Blender 5.2.3 LTS remains supported as a compatibility fallback.
    Blender is external; this package does not vendor Blender or a Python runtime.
 2. Install the per-user Drop & View Render package and launch it from Start.
    Its icon appears beside the clock, sometimes inside Windows' overflow area.
@@ -27,8 +28,9 @@ inputs; a Windows Job Object also terminates owned Blender children if the tray
 process crashes. Original packages and finished images are never deleted.
 A connection approval expires at app exit or Disconnect Browsers.
 
-Blender is detected under Program Files / Blender Foundation / Blender 5.2* and
-verified via `--version`; a selected custom path is persisted per user. No beta
+Blender is detected under Program Files / Blender Foundation / Blender 5.3*
+first, with Blender 5.2* as a fallback, ordered by numeric version. The executable
+is verified via `--version`; a selected custom path is persisted and keeps priority. No beta
 Blender or administrator privileges are required. Run the tray app as the normal
 logged-in user, not elevated. GPU AUTO tries NVIDIA OptiX, CUDA, AMD HIP, Intel
 oneAPI, then explicitly reports CPU fallback. Resolution, sample cap and bounce

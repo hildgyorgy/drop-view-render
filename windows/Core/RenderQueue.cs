@@ -30,7 +30,7 @@ public sealed class BlenderExecutor(Func<string?> blender, string adapter, strin
 {
     public async Task RunAsync(RenderJob job, string stagedOutput, Action<double> progress, CancellationToken cancellation)
     {
-        string executable = blender() ?? throw new InvalidOperationException("Choose Blender 5.2.3 LTS in the tray menu.");
+        string executable = blender() ?? throw new InvalidOperationException("Choose Blender 5.3.0 in the tray menu.");
         string scratch = Path.Combine(scratchRoot, job.Id);
         Directory.CreateDirectory(scratch);
         StreamWriter? log = null;

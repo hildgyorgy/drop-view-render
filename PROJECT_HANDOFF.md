@@ -1,6 +1,6 @@
 # Drop & View Render — project handoff
 
-Updated: 2026-11-11
+Updated: 2026-11-12
 
 ## Purpose
 
@@ -8,6 +8,27 @@ Drop & View Render is the separate final-render companion to the Drop & View
 web application. The web app composes the model, materials, camera and lighting;
 this project renders the resulting GLB or `.dvrender` package through
 Blender/Cycles without requiring Blender knowledge.
+
+## Default Blender version (2026-11-12)
+
+The user selected stable Blender 5.3.0 as the new default. The installed
+`/Applications/Blender.app` reports 5.3.0 (release hash `02f0899d78e3`). macOS
+adds versioned 5.3 / 5.3.0 locations before the generic application and legacy
+5.2 fallback; a deliberately saved executable remains first. Windows now
+searches 5.3 before 5.2 using numeric version order, accepts stable 5.3.x plus
+previously supported 5.2.3+ LTS, and rejects alpha/beta/RC versions. UI/setup
+instructions and repository guidance recommend 5.3.0; old release notes and
+historical render evidence keep their original version numbers.
+
+The production adapter required no behavioral change. On Blender 5.3.0, the
+quality-policy test, marked thin-glass/import-hook test, packed prepared-scene
+reopen/render test, and orthographic/axon projection/package render test passed.
+The macOS Release build and Windows tray cross-build also passed (Windows: zero
+warnings/errors); all 42 Windows core checks and four GPU policy unit tests passed.
+Denoise/adaptive flags, exact sample/bounce targets, glass calibration and
+.dvrender v1 remain unchanged. This source update does not replace the already
+published v0.3.0 DMG or imply a new signed/notarized binary release. The pending
+live Safari four-combination release acceptance remains a separate task.
 
 ## Verified renderer path
 

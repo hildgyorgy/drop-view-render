@@ -1,7 +1,7 @@
 Drop & View Render — macOS installation
 
 Requires an Apple Silicon Mac with macOS 14 or later and an external installation
-of Blender 5.2.3 LTS. Blender and Python are not bundled in this download.
+of stable Blender 5.3.0 (recommended; 5.2.3 LTS remains compatible). Blender and Python are not bundled in this download.
 
 1. Download the macOS-arm64 DMG from the official GitHub Release:
    https://github.com/hildgyorgy/drop-view-render/releases

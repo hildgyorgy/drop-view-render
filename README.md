@@ -45,7 +45,7 @@ prefiltering and high quality, with GPU acceleration requested when available.
 
 Exporter-selected clear glass (`material.extras.archicad.clearGlassOverride`
 equal to `true`) with positive glTF transmission and no positive
-`KHR_materials_volume` thickness uses Blender 5.2's native Principled BSDF
+`KHR_materials_volume` thickness uses Blender's native Principled BSDF
 **Thin Wall** mode. Unmarked materials, positive-thickness glass and alpha-only
 transparency retain their imported behavior. Eligible marked thin glass gets
 Cycles-only calibration: **IOR 1.51, roughness 0.01, transmission 1.0**. These
@@ -130,7 +130,8 @@ icon and no main window. Chrome/Edge and the webapp supply scene/queue controls.
 The tray provides status, Blender/output selection, cancellation, browser revoke,
 optional sign-in startup and Quit. It uses the same `.dvrender` v1 and Blender
 adapter, with NVIDIA OptiX/CUDA, AMD HIP, Intel oneAPI discovery and CPU fallback.
-Blender 5.2.3 LTS stays an external prerequisite. No Safari component is needed.
+Blender 5.3.0 is the default external renderer (5.2.3 LTS remains compatible).
+No Safari component is needed.
 
 A self-contained .NET 10 Windows bundle can be cross-built on this Mac. Installer
 source and a Windows GitHub Actions build/test/package workflow are included.
@@ -163,7 +164,12 @@ mode does not change source files or the `.dvrender` v1 contract.
 ## Requirements
 
 - macOS on Apple Silicon
-- Blender 5.2.3 LTS installed at `/Applications/Blender.app`
+- Stable [Blender 5.3.0](https://www.blender.org/releases/5-3/) installed at `/Applications/Blender.app`
+  (Blender 5.2.3 LTS remains compatible).
+
+Automatic discovery prefers versioned Blender 5.3 installations, then the standard
+Blender.app location and the legacy 5.2 location. An explicitly chosen Blender
+keeps priority. No Blender or separate Python runtime is bundled.
 
 The adapter can also be invoked directly for development diagnostics:
 

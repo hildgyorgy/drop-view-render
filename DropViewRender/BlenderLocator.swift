@@ -9,7 +9,7 @@ struct BlenderInstallation {
     static let missing = BlenderInstallation(
         executableURL: nil,
         title: "Blender not found",
-        detail: "Install Blender 5.2.3 LTS or choose its executable."
+        detail: "Install Blender 5.3.0 or choose its executable."
     )
 }
 
@@ -20,6 +20,8 @@ enum BlenderLocator {
         let storedPath = UserDefaults.standard.string(forKey: storedPathKey)
         let candidates = [
             storedPath,
+            "/Applications/Blender 5.3.app/Contents/MacOS/Blender",
+            "/Applications/Blender 5.3.0.app/Contents/MacOS/Blender",
             "/Applications/Blender.app/Contents/MacOS/Blender",
             "/Applications/Blender 5.2.app/Contents/MacOS/Blender"
         ].compactMap { $0 }

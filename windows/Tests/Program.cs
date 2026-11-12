@@ -45,6 +45,10 @@ internal static class Program
         string root = Path.Combine(Path.GetTempPath(), "dvr-windows-tests-" + Guid.NewGuid()); Directory.CreateDirectory(root);
         try
         {
+            foreach (string version in new[] { "Blender 5.3.0", "Blender 5.3.1\n build date: test", "Blender 5.2.3 LTS" })
+                Check(BlenderVersion.IsSupported(version), "stable Blender version supported: " + version);
+            foreach (string version in new[] { "Blender 5.3.0 Beta", "Blender 5.3.0 Release Candidate", "Blender 5.2.2 LTS", "Blender 5.4.0 Alpha", "not Blender" })
+                Check(!BlenderVersion.IsSupported(version), "unsupported/prerelease Blender rejected: " + version);
             var bytes = EncodePackage(); string source = Path.Combine(root, "scene.dvrender"); await File.WriteAllBytesAsync(source, bytes);
             var package = await Package.ReadAsync(source);
             Check(package.Samples == 37 && package.Bounces == 8 && package.TransmissionBounces == 12, "source targets are preserved");

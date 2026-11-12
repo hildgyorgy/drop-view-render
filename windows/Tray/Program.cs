@@ -3,7 +3,6 @@ using Microsoft.Win32;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Win32.SafeHandles;
 
 namespace DropViewRenderTray;
@@ -29,7 +28,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly NotifyIcon icon;
     private readonly ToolStripMenuItem status = new("Starting…") { Enabled = false };
     private readonly ToolStripMenuItem login = new("Start when I sign in") { CheckOnClick = true };
-    private readonly ToolStripMenuItem blenderItem = new("Choose Blender 5.2.3 LTS…");
+    private readonly ToolStripMenuItem blenderItem = new("Choose Blender 5.3.0…");
     private readonly string support = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DropViewRender");
     private readonly string session;
     private readonly RenderQueue queue;
@@ -72,10 +71,10 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(blenderItem);
         blenderItem.Click += async (_, _) =>
         {
-            using var dialog = new OpenFileDialog { Filter = "Blender executable (blender.exe)|blender.exe", Title = "Choose Blender 5.2.3 LTS" };
+            using var dialog = new OpenFileDialog { Filter = "Blender executable (blender.exe)|blender.exe", Title = "Choose Blender 5.3.0" };
             if (dialog.ShowDialog() != DialogResult.OK) return;
             if (await VerifyBlenderAsync(dialog.FileName)) { settings = settings with { Blender = dialog.FileName }; Save(); Update(); }
-            else MessageBox.Show("Choose an installed stable Blender 5.2.3 LTS (or a newer 5.2 maintenance release).", "Drop & View Render");
+            else MessageBox.Show("Choose stable Blender 5.3.0 (or a newer 5.3 maintenance release). Blender 5.2.3 LTS remains supported.", "Drop & View Render");
         };
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Cancel renders", null, (_, _) => queue.CancelAll());
@@ -150,11 +149,14 @@ internal sealed class TrayContext : ApplicationContext
         var candidates = new List<string>();
         if (settings.Blender != null) candidates.Add(settings.Blender);
         string foundation = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Blender Foundation");
-        if (Directory.Exists(foundation)) candidates.AddRange(Directory.GetDirectories(foundation, "Blender 5.2*").OrderDescending()
+        if (Directory.Exists(foundation)) candidates.AddRange(Directory.GetDirectories(foundation, "Blender 5.*")
+            .Where(folder => Path.GetFileName(folder).StartsWith("Blender 5.3", StringComparison.Ordinal) ||
+                             Path.GetFileName(folder).StartsWith("Blender 5.2", StringComparison.Ordinal))
+            .OrderByDescending(folder => Version.TryParse(Path.GetFileName(folder)[8..], out var version) ? version : new Version(0, 0))
             .Select(folder => Path.Combine(folder, "blender.exe")));
         foreach (string candidate in candidates) if (await VerifyBlenderAsync(candidate)) break;
         Update();
-        if (verifiedBlender == null) icon.ShowBalloonTip(5000, "Choose Blender", "Install Blender 5.2.3 LTS, then choose it from this tray menu.", ToolTipIcon.Info);
+        if (verifiedBlender == null) icon.ShowBalloonTip(5000, "Choose Blender", "Install Blender 5.3.0, then choose it from this tray menu.", ToolTipIcon.Info);
     }
     private async Task<bool> VerifyBlenderAsync(string path)
     {
@@ -172,9 +174,7 @@ internal sealed class TrayContext : ApplicationContext
             try { await process.WaitForExitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token); }
             catch (OperationCanceledException) { process.Kill(true); return false; }
             string version = await output; await errors;
-            var match = Regex.Match(version, @"^Blender (5\.2\.\d+)", RegexOptions.CultureInvariant);
-            if (process.ExitCode != 0 || !match.Success || !Version.TryParse(match.Groups[1].Value, out var parsed) || parsed < new Version(5, 2, 3) ||
-                Regex.IsMatch(version.Split('\n')[0], "alpha|beta|candidate", RegexOptions.IgnoreCase)) return false;
+            if (process.ExitCode != 0 || !BlenderVersion.IsSupported(version)) return false;
             verifiedBlender = path; return true;
         }
         catch (Exception error) when (error is IOException or System.ComponentModel.Win32Exception or InvalidOperationException) { return false; }
@@ -185,7 +185,7 @@ internal sealed class TrayContext : ApplicationContext
         var jobs = queue.Jobs;
         var active = jobs.FirstOrDefault(job => job.State == "rendering");
         status.Text = active != null ? $"Rendering · {active.Progress.GetValueOrDefault():P0} · {Path.GetFileName(active.Output)}"
-            : verifiedBlender != null ? "Ready" : "Choose Blender 5.2.3 LTS…";
+            : verifiedBlender != null ? "Ready" : "Choose Blender 5.3.0…";
         icon.Text = active != null ? "Drop & View Render · Rendering" : "Drop & View Render · " + (verifiedBlender != null ? "Ready" : "Choose Blender");
         foreach (var job in jobs)
         {
