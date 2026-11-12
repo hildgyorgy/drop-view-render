@@ -115,13 +115,16 @@ Chrome is not installed on the test Mac, so a separate live Chrome check remains
 Details: [Chrome / Edge setup](docs/CHROMIUM_NATIVE_MESSAGING.md),
 [Safari setup and shared upload protocol](docs/SAFARI_NATIVE_MESSAGING.md).
 
-## macOS release preparation
+## macOS release
 
 Developer ID signing, notarization, DMG packaging and GitHub Release commands
 are documented in [the release guide](docs/MACOS_RELEASE.md). The local pipeline
 checks app/extension/helper signatures and matching versions before distribution.
 [Installation instructions](docs/MACOS_INSTALL.md) describe the final Safari flow.
-This preparation alone is not a published/notarized release.
+[Version 0.3.0](https://github.com/hildgyorgy/drop-view-render/releases/tag/v0.3.0)
+is Developer ID signed and notarized; its published DMG was downloaded through
+Safari and the installed app passed signature, stapling and Gatekeeper checks.
+Live Safari render acceptance is still pending.
 
 ## Windows tray prototype
 
@@ -133,11 +136,13 @@ adapter, with NVIDIA OptiX/CUDA, AMD HIP, Intel oneAPI discovery and CPU fallbac
 Blender 5.3.0 is the default external renderer (5.2.3 LTS remains compatible).
 No Safari component is needed.
 
-A self-contained .NET 10 Windows bundle can be cross-built on this Mac. Installer
-source and a Windows GitHub Actions build/test/package workflow are included.
-The shared core and actual Cycles queue were tested locally; Windows tray/UI,
-installer and vendor GPU acceptance still require Windows 11. Prototype builds
-are unsigned; no remote CI run or release publication is implied.
+Download the [Windows installer (.exe)](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0-Setup.exe)
+for normal installation. The optional portable ZIP contains the same app but
+requires manual browser-host registration; you do not need both downloads.
+The self-contained .NET 10 bundle needs no separate .NET installation.
+The Windows GitHub build, native host/process tests and installer compilation
+passed. These are unsigned prototypes; real Windows tray/browser/GPU render
+acceptance remains pending.
 See [Windows setup/build instructions](windows/README.md).
 
 ## View in Blender

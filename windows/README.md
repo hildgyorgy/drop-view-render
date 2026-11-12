@@ -9,7 +9,8 @@ and production Blender adapter as macOS. Safari is not included.
 1. Install stable Blender **5.3.0** (or a later 5.3 maintenance release).
    Blender 5.2.3 LTS remains supported as a compatibility fallback.
    Blender is external; this package does not vendor Blender or a Python runtime.
-2. Install the per-user Drop & View Render package and launch it from Start.
+2. Download the [Setup.exe installer](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0-Setup.exe),
+   install it for your user account and launch Drop & View Render from Start.
    Its icon appears beside the clock, sometimes inside Windows' overflow area.
 3. Install/enable the companion Chrome/Edge extension. Until store publication,
    use Developer mode → Load unpacked and choose the installed `ChromiumExtension`
@@ -118,10 +119,13 @@ The portable ZIP requires host registration via the script below.
 The GitHub Actions **Windows tray app** workflow runs core/named-pipe tests,
 actual Windows Job Object lifetime and published-host stdio/pipe checks, then
 publishes the bundle, compiles the installer and uploads ZIP/Setup artifacts.
-It does not publish a release or embed certificates. It only runs remotely after
-these changes are committed/pushed or dispatched on a branch containing it.
+The workflow does not automatically publish a release or embed certificates.
+The successful run for commit `6c1bf78` built the installer and ZIP; both were
+subsequently attached to the v0.3.0 GitHub Release with Windows-SHA256SUMS.txt.
+Use Setup.exe for normal installation. The optional portable ZIP contains the
+same app and needs manual registration; only one download is needed.
 Installer code signing/store publishing remain release work; these are unsigned
-prototype builds. No successful remote CI or Windows UI/GPU run is claimed yet.
+prototype builds. Real Windows tray/browser/GPU render acceptance is pending.
 
 ## Portable registration
 
