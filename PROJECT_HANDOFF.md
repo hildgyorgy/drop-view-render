@@ -291,6 +291,17 @@ access must be validated at their steps. No public Release, signed/notarized DMG
 installed app replacement or GitHub-download acceptance has been performed yet.
 Current source edits remain uncommitted until release prerequisites are resolved.
 
+## Single Windows download (2026-11-12)
+
+At the user's request, the public v0.3.0 Release now offers one Windows ZIP:
+`DropViewRender-Windows-0.3.0.zip`, containing the previously CI-tested Setup.exe
+unchanged plus `README-Windows.txt`. The standalone EXE and portable ZIP were
+removed from the public assets after the installer ZIP was uploaded/verified.
+Windows-SHA256SUMS.txt covers the new ZIP. The CI workflow packages/uploads only
+the installer ZIP; the portable bundle remains an internal development product.
+Current setup/release/README text consistently recommends stable Blender 5.3.0.
+No Windows signing or live Windows GPU/browser acceptance is implied.
+
 ## Current files
 
 - `DropViewRender.xcodeproj` — native macOS application project.

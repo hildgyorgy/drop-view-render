@@ -136,9 +136,9 @@ adapter, with NVIDIA OptiX/CUDA, AMD HIP, Intel oneAPI discovery and CPU fallbac
 Blender 5.3.0 is the default external renderer (5.2.3 LTS remains compatible).
 No Safari component is needed.
 
-Download the [Windows installer (.exe)](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0-Setup.exe)
-for normal installation. The optional portable ZIP contains the same app but
-requires manual browser-host registration; you do not need both downloads.
+Download the [Windows installer ZIP](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0.zip),
+extract it and run the included Setup.exe. This is the single public Windows
+download; the installer handles browser-host registration for your user account.
 The self-contained .NET 10 bundle needs no separate .NET installation.
 The Windows GitHub build, native host/process tests and installer compilation
 passed. These are unsigned prototypes; real Windows tray/browser/GPU render

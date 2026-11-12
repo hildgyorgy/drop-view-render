@@ -9,8 +9,8 @@ and production Blender adapter as macOS. Safari is not included.
 1. Install stable Blender **5.3.0** (or a later 5.3 maintenance release).
    Blender 5.2.3 LTS remains supported as a compatibility fallback.
    Blender is external; this package does not vendor Blender or a Python runtime.
-2. Download the [Setup.exe installer](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0-Setup.exe),
-   install it for your user account and launch Drop & View Render from Start.
+2. Download the [Windows installer ZIP](https://github.com/hildgyorgy/drop-view-render/releases/download/v0.3.0/DropViewRender-Windows-0.3.0.zip),
+   extract it, run the included Setup.exe and launch Drop & View Render from Start.
    Its icon appears beside the clock, sometimes inside Windows' overflow area.
 3. Install/enable the companion Chrome/Edge extension. Until store publication,
    use Developer mode → Load unpacked and choose the installed `ChromiumExtension`
@@ -108,29 +108,31 @@ On Windows with PowerShell 7:
 & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows/installer/DropViewRender.iss
 ```
 
-`windows/artifacts/win-x64` contains the portable self-contained app plus helper,
-shared adapter/HDRI and complete shared extension. ZIP and Inno Setup per-user
-installer are under `windows/artifacts`. The installer registers the exact
+`windows/artifacts/win-x64` contains the internal self-contained app bundle plus
+helper, shared adapter/HDRI and complete shared extension. After Inno Setup
+compilation, the GitHub workflow packages Setup.exe and `INSTALL.txt` into the
+single public `DropViewRender-Windows-<version>.zip`. The installer registers the exact
 Native Messaging host under HKCU for Chrome and Edge and adds Start shortcuts;
 startup remains opt-in. Quit the tray app before installing/updating/uninstalling.
 The installer does not install Blender or silently enable a browser extension.
-The portable ZIP requires host registration via the script below.
+The internal portable bundle is retained for development only; public downloads
+use the installer ZIP.
 
 The GitHub Actions **Windows tray app** workflow runs core/named-pipe tests,
 actual Windows Job Object lifetime and published-host stdio/pipe checks, then
-publishes the bundle, compiles the installer and uploads ZIP/Setup artifacts.
+publishes the bundle, compiles the installer and uploads the single installer ZIP.
 The workflow does not automatically publish a release or embed certificates.
-The successful run for commit `6c1bf78` built the installer and ZIP; both were
-subsequently attached to the v0.3.0 GitHub Release with Windows-SHA256SUMS.txt.
-Use Setup.exe for normal installation. The optional portable ZIP contains the
-same app and needs manual registration; only one download is needed.
+The successful run for commit `6c1bf78` produced the current installer; it is now
+published inside a single ZIP on the v0.3.0 Release with Windows-SHA256SUMS.txt.
+The workflow also uploads just the installer ZIP as its downloadable artifact.
 Installer code signing/store publishing remain release work; these are unsigned
 prototype builds. Real Windows tray/browser/GPU render acceptance is pending.
 
-## Portable registration
+## Developer-only portable registration
 
-After extracting the ZIP to a stable folder, run `Register-Browsers.ps1` from that
-folder in PowerShell as the normal user. It creates `native-host.json` and the
+For the internal developer bundle produced by `publish.ps1` (not the public
+installer ZIP), run `Register-Browsers.ps1` from the unpacked bundle folder in
+PowerShell as the normal user. It creates `native-host.json` and the
 user-level Chrome/Edge NativeMessagingHosts registry entries for this helper.
 Repeat after moving the folder. The bundled extension ID is derived during
 packaging; store publication must preserve it or update registration and caller

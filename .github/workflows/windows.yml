@@ -30,10 +30,13 @@ jobs:
           if (!(Test-Path $compiler)) { throw 'Inno Setup 6 is required on the Windows runner.' }
           & $compiler windows/installer/DropViewRender.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
+          $version = ([xml](Get-Content windows/Directory.Build.props -Raw)).Project.PropertyGroup.Version
+          $stage = New-Item windows/artifacts/installer-zip -ItemType Directory -Force
+          Copy-Item "windows/artifacts/DropViewRender-Windows-$version-Setup.exe" $stage
+          Copy-Item windows/INSTALL.txt (Join-Path $stage 'README-Windows.txt')
+          Compress-Archive -Path "$stage/*" -DestinationPath "windows/artifacts/DropViewRender-Windows-$version.zip" -Force
       - uses: actions/upload-artifact@v4
         with:
           name: DropViewRender-Windows-x64
-          path: |
-            windows/artifacts/*Setup.exe
-            windows/artifacts/*.zip
+          path: windows/artifacts/DropViewRender-Windows-*.zip
           if-no-files-found: error

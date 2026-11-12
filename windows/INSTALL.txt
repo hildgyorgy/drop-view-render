@@ -1,0 +1,22 @@
+Drop & View Render — Windows 11 x64
+
+1. Extract this ZIP into a folder on your computer.
+2. Run DropViewRender-Windows-0.3.0-Setup.exe and complete the installation.
+3. Install stable Blender 5.3.0 separately if it is not already installed.
+4. Launch Drop & View Render from Start. Its icon appears beside the clock
+   (possibly in the hidden-icons menu). Keep the app running while rendering.
+5. Open the Browser extension folder shortcut from Start. In Chrome or Edge,
+   open Extensions, enable Developer mode, choose Load unpacked and select
+   that ChromiumExtension folder. Browser store publication is still pending.
+6. Open https://hildgyorgy.github.io/drop-3d-view/ and reload it. Enable
+   RENDER WITH BLENDER in the information panel, open RENDER, connect to the
+   native app and approve the connection. Then submit a scene to render.
+
+The installer configures the browser connection for your Windows user account.
+No separate .NET or Python installation is needed. Blender is not bundled.
+Images are saved to Downloads / Drop & View Render with numbered filenames.
+
+This is an unsigned Windows prototype. Automated Windows builds, native host
+checks and installer compilation passed; real Windows browser/GPU render
+acceptance is still pending. Denoise and adaptive sampling are currently ON;
+independent OFF settings are not yet supported in the Windows renderer.
